@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+/*
+  NyayOps design tokens — "ledger blue".
+  Light-first, cobalt brand, gold accent, sans-only type system.
+  See DESIGN.md. OKLCH throughout.
+*/
+@theme {
+  /* Fonts */
+  --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Brand + shell */
+  --color-brand: oklch(0.48 0.15 235);
+  --color-brand-strong: oklch(0.38 0.14 235);
+  --color-brand-soft: oklch(0.95 0.03 235);
+  --color-shell: oklch(0.2 0.05 240);
+  --color-shell-soft: oklch(0.26 0.05 240);
+  --color-accent: oklch(0.78 0.13 95);
+  --color-accent-strong: oklch(0.68 0.135 92);
+
+  /* Surfaces + ink */
+  --color-bg: oklch(0.985 0.004 235);
+  --color-surface: oklch(1 0 0);
+  --color-surface-muted: oklch(0.97 0.005 235);
+  --color-ink: oklch(0.26 0.02 235);
+  --color-ink-muted: oklch(0.5 0.018 235);
+  --color-ink-faint: oklch(0.62 0.015 235);
+  --color-border: oklch(0.9 0.008 235);
+  --color-border-strong: oklch(0.82 0.01 235);
+
+  /* Status */
+  --color-success: oklch(0.55 0.11 150);
+  --color-success-soft: oklch(0.95 0.04 150);
+  --color-warning: oklch(0.7 0.13 50);
+  --color-warning-strong: oklch(0.48 0.13 50);
+  --color-warning-soft: oklch(0.96 0.05 60);
+  --color-danger: oklch(0.55 0.17 27);
+  --color-danger-soft: oklch(0.95 0.04 27);
+  --color-info: oklch(0.58 0.11 215);
+  --color-info-soft: oklch(0.95 0.03 215);
+
+  /* Radius */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+
+  /* Shadow (defined, ≤ 8px blur — never paired with borders) */
+  --shadow-card: 0 1px 2px oklch(0.2 0.04 235 / 0.06), 0 4px 8px oklch(0.2 0.04 235 / 0.05);
+  --shadow-pop: 0 8px 24px oklch(0.2 0.04 235 / 0.14);
+
+  /* Semantic z-index scale */
+  --z-dropdown: 30;
+  --z-sticky: 40;
+  --z-drawer: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+
+  /* Motion */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 560;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-faint);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-brand-soft);
+  }
+
+  /* Numeric data reads better with tabular figures */
+  th, td, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Staggered fade-up for page/section reveals. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-rise {
+    animation: rise 0.36s var(--ease-out-quint) both;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
