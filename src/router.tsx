@@ -9,6 +9,10 @@ const page = (loader: () => Promise<{ default: React.ComponentType }>) => ({
 export const router = createBrowserRouter([
   { path: '/login', ...page(() => import('@/features/auth/LoginPage')) },
   { path: '/register', ...page(() => import('@/features/auth/RegisterPage')) },
+  { path: '/accept-invite', ...page(() => import('@/features/auth/AcceptInvitePage')) },
+  { path: '/verify-otp', ...page(() => import('@/features/auth/VerifyOtpPage')) },
+  { path: '/forgot-password', ...page(() => import('@/features/auth/ForgotPasswordPage')) },
+  { path: '/reset-password', ...page(() => import('@/features/auth/ResetPasswordPage')) },
   {
     element: <ProtectedRoute />,
     children: [

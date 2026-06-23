@@ -63,6 +63,9 @@ export interface LoginResponse {
   token_type: string
   mfa_required: boolean
   mfa_token: string | null
+  otp_required: boolean
+  otp_token: string | null
+  device_token: string | null
 }
 
 export interface MfaEnrollResponse {
@@ -164,6 +167,8 @@ export interface User {
   phone: string | null
   is_org_admin: boolean
   is_branch_admin: boolean
+  is_active: boolean
+  is_restricted: boolean
   role_ids: string[]
 }
 

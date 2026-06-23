@@ -29,7 +29,6 @@ export interface InviteUserPayload {
   email: string
   full_name: string
   phone?: string
-  temporary_password?: string
   branch_id?: string | null
   is_branch_admin?: boolean
 }
@@ -40,6 +39,7 @@ export interface UpdateUserPayload {
   is_org_admin?: boolean
   branch_id?: string | null
   is_branch_admin?: boolean
+  is_restricted?: boolean
 }
 
 export function listUsers(): Promise<User[]> {
@@ -64,6 +64,10 @@ export function deleteUser(userId: string): Promise<void> {
 
 export function assignRoles(userId: string, roleIds: string[]): Promise<User> {
   return post<User>(`/users/${userId}/roles`, { role_ids: roleIds })
+}
+
+export function adminResetPassword(userId: string): Promise<void> {
+  return post<void>(`/users/${userId}/reset-password`, undefined)
 }
 
 // Roles ----------------------------------------------------------------------

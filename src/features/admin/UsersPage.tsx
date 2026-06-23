@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Pencil, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
+import { Building2, KeyRound, Lock, Pencil, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
 import {
+  adminResetPassword,
   assignRoles,
   deleteUser,
   inviteUser,
@@ -32,6 +33,7 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<User | null>(null)
   const [managingRoles, setManagingRoles] = useState<User | null>(null)
   const [deleting, setDeleting] = useState<User | null>(null)
+  const [resettingPassword, setResettingPassword] = useState<User | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.users,
@@ -113,22 +115,33 @@ export default function UsersPage() {
                     </div>
                   </Td>
                   <Td>
-                    {u.is_org_admin ? (
-                      <Badge tone="brand">
-                        <ShieldCheck className="size-3.5" /> Managing Director
-                      </Badge>
-                    ) : u.is_branch_admin ? (
-                      <Badge tone="brand">
-                        <Building2 className="size-3.5" /> Branch Admin
-                      </Badge>
-                    ) : (
-                      <span className="text-ink-faint">Member</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {u.is_org_admin ? (
+                        <Badge tone="brand">
+                          <ShieldCheck className="size-3.5" /> Managing Director
+                        </Badge>
+                      ) : u.is_branch_admin ? (
+                        <Badge tone="brand">
+                          <Building2 className="size-3.5" /> Branch Admin
+                        </Badge>
+                      ) : (
+                        <span className="text-ink-faint">Member</span>
+                      )}
+                      {!u.is_active && <Badge tone="neutral">Pending</Badge>}
+                      {u.is_restricted && (
+                        <Badge tone="warning">
+                          <Lock className="size-3.5" /> Read-only
+                        </Badge>
+                      )}
+                    </div>
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="ghost" onClick={() => setManagingRoles(u)}>
                         <ShieldCheck className="size-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setResettingPassword(u)}>
+                        <KeyRound className="size-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(u)}>
                         <Pencil className="size-4" />
@@ -187,6 +200,28 @@ export default function UsersPage() {
         <p className="text-sm text-ink-muted">
           Remove <span className="font-medium text-ink">{deleting?.full_name}</span> from the
           organization?
+        </p>
+      </Dialog>
+      <Dialog
+        open={!!resettingPassword}
+        onClose={() => setResettingPassword(null)}
+        title="Reset password"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setResettingPassword(null)}>
+              Cancel
+            </Button>
+            <ResetPasswordButton
+              user={resettingPassword}
+              onDone={() => setResettingPassword(null)}
+            />
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          Send a password reset link to{' '}
+          <span className="font-medium text-ink">{resettingPassword?.full_name}</span>?
         </p>
       </Dialog>
     </div>
@@ -308,13 +343,16 @@ function EditUserDialog({
   const [isAdmin, setIsAdmin] = useState(user.is_org_admin)
   const [branchId, setBranchId] = useState(user.branch_id ?? '')
   const [isBranchAdmin, setIsBranchAdmin] = useState(user.is_branch_admin)
+  const [isRestricted, setIsRestricted] = useState(user.is_restricted)
   const mutation = useMutationWithToast({
     mutationFn: () =>
       updateUser(user.id, {
         full_name: fullName,
         phone: phone || undefined,
         is_org_admin: isAdmin,
-        ...(isManagingDirector ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin } : {}),
+        ...(isManagingDirector
+          ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin, is_restricted: isRestricted }
+          : {}),
       }),
     onSuccess: () => {
       toast('User updated.', 'success')
@@ -381,6 +419,14 @@ function EditUserDialog({
                 disabled={!branchId}
               />
               Branch Admin (manages only the selected branch)
+            </label>
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={isRestricted}
+                onChange={(e) => setIsRestricted(e.target.checked)}
+              />
+              Read-only access (can view but not make any changes)
             </label>
           </>
         )}
@@ -478,6 +524,23 @@ function DeleteButton({ user, onDone }: { user: User | null; onDone: () => void 
   return (
     <Button variant="danger" loading={mutation.isPending} onClick={() => mutation.mutate()}>
       Remove
+    </Button>
+  )
+}
+
+function ResetPasswordButton({ user, onDone }: { user: User | null; onDone: () => void }) {
+  const { toast } = useToast()
+  const mutation = useMutationWithToast({
+    mutationFn: () => adminResetPassword(user!.id),
+    onSuccess: () => {
+      toast('Reset link sent.', 'success')
+      onDone()
+    },
+    errorFallback: 'Could not send reset link.',
+  })
+  return (
+    <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>
+      Send reset link
     </Button>
   )
 }

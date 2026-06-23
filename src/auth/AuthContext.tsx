@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AUTH_LOGOUT_EVENT } from '@/lib/api/client'
-import { clearTokens, getAccessToken, setTokens } from '@/lib/api/tokens'
+import { clearTokens, getAccessToken, setDeviceToken, setTokens } from '@/lib/api/tokens'
 import { decodeToken, isTokenExpired } from '@/lib/jwt'
 import type { DecodedToken, LoginResponse } from '@/types'
 
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setSession = useCallback((response: LoginResponse) => {
     setTokens(response.access_token, response.refresh_token)
+    if (response.device_token) setDeviceToken(response.device_token)
     setToken(response.access_token)
   }, [])
 

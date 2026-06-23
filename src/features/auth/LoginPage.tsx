@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
-import { login, loginMfa } from '@/lib/api/auth'
+import { login, loginMfa, loginOtp, requestMfaEmailFallback } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
@@ -14,14 +14,16 @@ export default function LoginPage() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
 
-  const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
+  const [step, setStep] = useState<'credentials' | 'mfa' | 'otp'>('credentials')
   const [tenantSlug, setTenantSlug] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mfaToken, setMfaToken] = useState('')
+  const [otpToken, setOtpToken] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fallbackLoading, setFallbackLoading] = useState(false)
 
   async function submitCredentials(e: FormEvent) {
     e.preventDefault()
@@ -32,6 +34,9 @@ export default function LoginPage() {
       if (res.mfa_required && res.mfa_token) {
         setMfaToken(res.mfa_token)
         setStep('mfa')
+      } else if (res.otp_required && res.otp_token) {
+        setOtpToken(res.otp_token)
+        setStep('otp')
       } else {
         setSession(res)
         navigate(from, { replace: true })
@@ -58,7 +63,40 @@ export default function LoginPage() {
     }
   }
 
-  if (step === 'mfa') {
+  async function useEmailFallback() {
+    setError(null)
+    setFallbackLoading(true)
+    try {
+      const res = await requestMfaEmailFallback(mfaToken)
+      if (res.otp_required && res.otp_token) {
+        setOtpToken(res.otp_token)
+        setCode('')
+        setStep('otp')
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to email a code right now.')
+    } finally {
+      setFallbackLoading(false)
+    }
+  }
+
+  async function submitOtp(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await loginOtp(otpToken, code)
+      setSession(res)
+      navigate(from, { replace: true })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Invalid or expired verification code.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (step === 'mfa' || step === 'otp') {
+    const isMfa = step === 'mfa'
     return (
       <AuthLayout>
         <button
@@ -76,11 +114,17 @@ export default function LoginPage() {
             <ShieldCheck className="size-5" />
           </span>
           <div>
-            <h1 className="font-display text-2xl font-semibold text-ink">Two-step verification</h1>
-            <p className="text-sm text-ink-muted">Enter the code from your authenticator app.</p>
+            <h1 className="font-display text-2xl font-semibold text-ink">
+              {isMfa ? 'Two-step verification' : "Verify it's you"}
+            </h1>
+            <p className="text-sm text-ink-muted">
+              {isMfa
+                ? 'Enter the code from your authenticator app.'
+                : 'We emailed a code to confirm this sign-in.'}
+            </p>
           </div>
         </div>
-        <form onSubmit={submitMfa} className="space-y-4">
+        <form onSubmit={isMfa ? submitMfa : submitOtp} className="space-y-4">
           <Field label="Verification code" htmlFor="code">
             <Input
               id="code"
@@ -98,6 +142,16 @@ export default function LoginPage() {
           <Button type="submit" size="lg" loading={loading} className="w-full justify-center">
             Verify & sign in
           </Button>
+          {isMfa && (
+            <button
+              type="button"
+              onClick={useEmailFallback}
+              disabled={fallbackLoading}
+              className="block w-full text-center text-sm font-medium text-brand hover:text-brand-strong disabled:opacity-60"
+            >
+              Can't access your authenticator? Email me a code instead.
+            </button>
+          )}
         </form>
       </AuthLayout>
     )
@@ -142,6 +196,9 @@ export default function LoginPage() {
             required
           />
         </Field>
+        <Link to="/forgot-password" className="block text-sm font-medium text-brand hover:text-brand-strong">
+          Forgot password?
+        </Link>
         {error && <p className="text-sm text-danger">{error}</p>}
         <Button type="submit" size="lg" loading={loading} className="w-full justify-center">
           Sign in
