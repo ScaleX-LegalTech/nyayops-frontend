@@ -22,16 +22,25 @@ interface BaseProps {
 }
 
 type UploadDialogProps =
-  | (BaseProps & { mode: 'new'; documentId?: undefined })
+  | (BaseProps & {
+      mode: 'new'
+      documentId?: undefined
+      caseId?: string
+      description?: string
+      skipLabel?: string
+    })
   | (BaseProps & { mode: 'version'; documentId: string; caseId: string })
 
 export function UploadDialog(props: UploadDialogProps) {
   const { open, onClose, mode } = props
+  const lockedCaseId = mode === 'new' ? props.caseId : undefined
+  const dialogDescription = mode === 'new' ? props.description : undefined
+  const skipLabel = (mode === 'new' && props.skipLabel) || 'Cancel'
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
-  const [caseId, setCaseId] = useState('')
+  const [caseId, setCaseId] = useState(lockedCaseId ?? '')
   const [title, setTitle] = useState('')
   const [docType, setDocType] = useState('')
   const [changeNote, setChangeNote] = useState('')
@@ -74,7 +83,7 @@ export function UploadDialog(props: UploadDialogProps) {
 
   function reset() {
     setFile(null)
-    setCaseId('')
+    setCaseId(lockedCaseId ?? '')
     setTitle('')
     setDocType('')
     setChangeNote('')
@@ -92,10 +101,11 @@ export function UploadDialog(props: UploadDialogProps) {
       open={open}
       onClose={onClose}
       title={mode === 'version' ? 'Upload new version' : 'Upload document'}
+      description={dialogDescription}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {skipLabel}
           </Button>
           <Button type="submit" form="upload-form" loading={mutation.isPending} disabled={!valid}>
             Upload
@@ -107,9 +117,16 @@ export function UploadDialog(props: UploadDialogProps) {
         {mode === 'new' && (
           <>
             <Field label="Case" required>
-              <Select value={caseId} onChange={(e) => setCaseId(e.target.value)} required>
+              <Select
+                value={caseId}
+                onChange={(e) => setCaseId(e.target.value)}
+                disabled={!!lockedCaseId}
+                required
+              >
                 <option value="">Select a case…</option>
-                {(casesQuery.data ?? []).map((c) => (
+                {(casesQuery.data ?? [])
+                  .filter((c) => c.status !== 'closed')
+                  .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title}
                   </option>

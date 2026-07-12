@@ -4,15 +4,25 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Eye,
   FilePlus2,
   FileText,
+  Paperclip,
   Plus,
   RotateCcw,
+  Trash2,
 } from 'lucide-react'
-import { downloadDocument, listDocuments, rollbackVersion } from '@/lib/api/documents'
+import {
+  deleteDocument,
+  downloadDocument,
+  listDocuments,
+  loadDocumentBlob,
+  rollbackVersion,
+} from '@/lib/api/documents'
 import { listCases } from '@/lib/api/cases'
 import { qk } from '@/lib/queryKeys'
 import { formatBytes, formatDateTime, humanize } from '@/lib/format'
+import { useAuth } from '@/auth/AuthContext'
 import { useUsers } from '@/lib/useUsers'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
@@ -22,9 +32,13 @@ import { Input, Select } from '@/components/ui/Field'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
+import { Dialog } from '@/components/ui/Dialog'
+import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
 import { UploadDialog } from './UploadDialog'
 
-const SCAN_TONE: Record<string, Tone> = {
+const HIDDEN_DOC_TYPES = new Set(['comment_attachment', 'final_order_attachment'])
+
+export const SCAN_TONE: Record<string, Tone> = {
   clean: 'success',
   pending: 'warning',
   infected: 'danger',
@@ -34,11 +48,16 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { nameOf } = useUsers()
+  const { isManagingDirector, isBranchAdmin } = useAuth()
+  const isAdmin = isManagingDirector || isBranchAdmin
   const [caseId, setCaseId] = useState('')
   const [title, setTitle] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [uploadNew, setUploadNew] = useState(false)
   const [versionFor, setVersionFor] = useState<{ id: string; caseId: string } | null>(null)
+  const [showHiddenSection, setShowHiddenSection] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
 
   const filters = useMemo(
     () => ({ case_id: caseId || undefined, title: title || undefined }),
@@ -61,6 +80,16 @@ export default function DocumentsPage() {
     errorFallback: 'Rollback failed.',
   })
 
+  const deleteMutation = useMutationWithToast({
+    mutationFn: (documentId: string) => deleteDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      toast('File deleted.', 'success')
+      setDeleteTarget(null)
+    },
+    errorFallback: 'Could not delete file.',
+  })
+
   async function handleDownload(storageKey: string) {
     try {
       await downloadDocument(storageKey)
@@ -69,7 +98,11 @@ export default function DocumentsPage() {
     }
   }
 
-  const docs = data ?? []
+  // Comment/final-order attachments live in their own context (the case thread, the
+  // manual case document) - the main table never shows them; admins get a separate,
+  // simpler list below for finding and cleaning up orphaned uploads.
+  const docs = (data ?? []).filter((doc) => !HIDDEN_DOC_TYPES.has(doc.doc_type))
+  const hiddenDocs = (data ?? []).filter((doc) => HIDDEN_DOC_TYPES.has(doc.doc_type))
   const caseTitle = (id: string) => casesQuery.data?.find((c) => c.id === id)?.title ?? id.slice(0, 8)
 
   return (
@@ -142,7 +175,7 @@ export default function DocumentsPage() {
                       <Td>
                         <button
                           onClick={() => setExpanded(isOpen ? null : doc.id)}
-                          className="text-ink-muted hover:text-ink"
+                          className="grid size-11 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           aria-label="Toggle versions"
                         >
                           {isOpen ? (
@@ -173,19 +206,47 @@ export default function DocumentsPage() {
                       <Td>
                         <div className="flex justify-end gap-1">
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="ghost"
+                            aria-label={`Add version to ${doc.title}`}
                             onClick={() => setVersionFor({ id: doc.id, caseId: doc.case_id })}
                           >
                             <FilePlus2 className="size-4" />
                           </Button>
                           {latest && (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`View ${doc.title}`}
+                                onClick={() =>
+                                  setPreviewTarget({
+                                    load: () => loadDocumentBlob(latest.storage_key),
+                                    mimeType: latest.mime_type,
+                                    title: doc.title,
+                                  })
+                                }
+                              >
+                                <Eye className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`Download ${doc.title}`}
+                                onClick={() => handleDownload(latest.storage_key)}
+                              >
+                                <Download className="size-4" />
+                              </Button>
+                            </>
+                          )}
+                          {isAdmin && (
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
-                              onClick={() => handleDownload(latest.storage_key)}
+                              aria-label={`Delete ${doc.title}`}
+                              onClick={() => setDeleteTarget({ id: doc.id, title: doc.title })}
                             >
-                              <Download className="size-4" />
+                              <Trash2 className="size-4 text-danger" />
                             </Button>
                           )}
                         </div>
@@ -216,16 +277,32 @@ export default function DocumentsPage() {
                                   )}
                                   <div className="ml-auto flex gap-1">
                                     <Button
-                                      size="sm"
+                                      size="icon"
                                       variant="ghost"
+                                      aria-label={`View version ${v.version_number}`}
+                                      onClick={() =>
+                                        setPreviewTarget({
+                                          load: () => loadDocumentBlob(v.storage_key),
+                                          mimeType: v.mime_type,
+                                          title: `${doc.title} (v${v.version_number})`,
+                                        })
+                                      }
+                                    >
+                                      <Eye className="size-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      aria-label={`Download version ${v.version_number}`}
                                       onClick={() => handleDownload(v.storage_key)}
                                     >
                                       <Download className="size-4" />
                                     </Button>
                                     {idx !== 0 && (
                                       <Button
-                                        size="sm"
+                                        size="icon"
                                         variant="ghost"
+                                        aria-label={`Roll back to version ${v.version_number}`}
                                         loading={rollback.isPending}
                                         onClick={() =>
                                           rollback.mutate({ docId: doc.id, versionId: v.id })
@@ -249,6 +326,81 @@ export default function DocumentsPage() {
         </TableWrap>
       )}
 
+      {isAdmin && hiddenDocs.length > 0 && (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowHiddenSection((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink"
+          >
+            {showHiddenSection ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
+            Hidden & unlinked files ({hiddenDocs.length})
+          </button>
+          {showHiddenSection && (
+            <ul className="mt-2 space-y-1.5">
+              {hiddenDocs.map((doc) => {
+                const latest = doc.versions[doc.versions.length - 1]
+                return (
+                  <li
+                    key={doc.id}
+                    className="flex items-center gap-2.5 rounded-control border border-border bg-surface-muted px-3.5 py-2.5 text-sm"
+                  >
+                    <Paperclip className="size-4 shrink-0 text-ink-muted" />
+                    <span className="flex-1 truncate text-ink">{doc.title}</span>
+                    <span className="text-ink-muted">{caseTitle(doc.case_id)}</span>
+                    {latest && (
+                      <span className="text-ink-faint">
+                        {nameOf(doc.uploaded_by)} · {formatDateTime(latest.uploaded_at)}
+                      </span>
+                    )}
+                    <div className="flex gap-1">
+                      {latest && (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`View ${doc.title}`}
+                            onClick={() =>
+                              setPreviewTarget({
+                                load: () => loadDocumentBlob(latest.storage_key),
+                                mimeType: latest.mime_type,
+                                title: doc.title,
+                              })
+                            }
+                          >
+                            <Eye className="size-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`Download ${doc.title}`}
+                            onClick={() => handleDownload(latest.storage_key)}
+                          >
+                            <Download className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Delete ${doc.title}`}
+                        onClick={() => setDeleteTarget({ id: doc.id, title: doc.title })}
+                      >
+                        <Trash2 className="size-4 text-danger" />
+                      </Button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
       <UploadDialog mode="new" open={uploadNew} onClose={() => setUploadNew(false)} />
       {versionFor && (
         <UploadDialog
@@ -259,6 +411,38 @@ export default function DocumentsPage() {
           onClose={() => setVersionFor(null)}
         />
       )}
+
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete file"
+        description="This permanently removes the file and every version — it cannot be undone."
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          Delete <span className="font-medium text-ink">{deleteTarget?.title}</span>?
+        </p>
+      </Dialog>
+
+      <DocumentPreviewDialog
+        open={!!previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        target={previewTarget}
+      />
     </div>
   )
 }

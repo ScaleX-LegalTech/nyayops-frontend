@@ -1,28 +1,49 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
 import {
-  addCaseComment,
-  deleteCase,
-  getCase,
-  getCaseTransitions,
-  updateCaseStatus,
-} from '@/lib/api/cases'
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Eye,
+  FilePlus2,
+  FileSearch,
+  FileText,
+  MessageSquarePlus,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+  UserCog,
+  UserPlus,
+} from 'lucide-react'
+import { deleteCase, getCase, getCaseTransitions, updateCaseStatus } from '@/lib/api/cases'
+import { downloadDocument, listDocuments, loadDocumentBlob, rollbackVersion } from '@/lib/api/documents'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import type { CaseStatus } from '@/types'
-import { formatDate, formatDateTime, humanize } from '@/lib/format'
+import { courtLabel, formatBytes, formatDate, formatDateTime, humanize } from '@/lib/format'
 import { useUsers } from '@/lib/useUsers'
+import { useCasePeople } from '@/lib/useCasePeople'
+import { usePermissions } from '@/lib/usePermissions'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Field, Select, Textarea } from '@/components/ui/Field'
-import { PriorityBadge, StatusBadge } from '@/components/ui/Badge'
+import { Field, Textarea } from '@/components/ui/Field'
+import { Badge, PriorityBadge, StatusBadge, STATUS_TONE, TONES } from '@/components/ui/Badge'
 import { Dialog } from '@/components/ui/Dialog'
+import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
 import { ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { EditCaseDialog } from './EditCaseDialog'
+import { AssignDialog } from './AssignDialog'
+import { ReassignDialog } from './ReassignDialog'
+import { UploadDialog } from '@/features/documents/UploadDialog'
+import { SCAN_TONE } from '@/features/documents/DocumentsPage'
+import { cn } from '@/lib/cn'
+
+const REVIEWER_ONLY_STATUSES: CaseStatus[] = ['under_review', 'approved', 'rejected', 'closed']
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -38,13 +59,21 @@ export default function CaseDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { nameOf } = useUsers()
+  const { nameOf: globalNameOf } = useUsers()
+  const { nameOf: caseNameOf } = useCasePeople(caseId)
+  const nameOf = (id: string) => caseNameOf(id) ?? globalNameOf(id)
+  const { hasPermission } = usePermissions()
 
   const [editing, setEditing] = useState(false)
+  const [assigning, setAssigning] = useState(false)
+  const [reassigning, setReassigning] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [nextStatus, setNextStatus] = useState<CaseStatus | ''>('')
   const [statusComment, setStatusComment] = useState('')
-  const [comment, setComment] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
+  const [versionFor, setVersionFor] = useState<string | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
 
   const { data: c, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.caseDetail(caseId),
@@ -56,9 +85,15 @@ export default function CaseDetailPage() {
     queryFn: getCaseTransitions,
   })
 
+  const { data: documents } = useQuery({
+    queryKey: qk.documents({ case_id: caseId }),
+    queryFn: () => listDocuments({ case_id: caseId }),
+  })
+
   function invalidate() {
     invalidateCaseScopes(queryClient)
     queryClient.invalidateQueries({ queryKey: qk.caseDetail(caseId) })
+    queryClient.invalidateQueries({ queryKey: qk.caseActivity(caseId) })
   }
 
   const statusMutation = useMutationWithToast({
@@ -72,16 +107,6 @@ export default function CaseDetailPage() {
     errorFallback: 'Could not update status.',
   })
 
-  const commentMutation = useMutationWithToast({
-    mutationFn: () => addCaseComment(caseId, comment),
-    onSuccess: () => {
-      invalidate()
-      setComment('')
-      toast('Comment added.', 'success')
-    },
-    errorFallback: 'Could not add comment.',
-  })
-
   const deleteMutation = useMutationWithToast({
     mutationFn: () => deleteCase(caseId),
     onSuccess: () => {
@@ -92,10 +117,31 @@ export default function CaseDetailPage() {
     errorFallback: 'Delete failed.',
   })
 
+  const rollback = useMutationWithToast({
+    mutationFn: ({ docId, versionId }: { docId: string; versionId: string }) =>
+      rollbackVersion(docId, versionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.documents({ case_id: caseId }) })
+      toast('Rolled back to selected version.', 'success')
+    },
+    errorFallback: 'Rollback failed.',
+  })
+
   if (isLoading) return <LoadingState />
   if (isError || !c) return <ErrorState error={error} onRetry={refetch} />
 
-  const allowed = transitions?.[c.status] ?? []
+  const caseTransitions = transitions?.[c.status] ?? []
+  const canReview = hasPermission('cases', 'review')
+  // Carrying a case up to ready_for_review is the assignee's job; entering review,
+  // the review decision, and closing afterward are the reviewer/manager's call.
+  const allowed = caseTransitions.filter(
+    (s) => s !== 'reassigned' && (canReview || !REVIEWER_ONLY_STATUSES.includes(s)),
+  )
+  const canReassign = hasPermission('cases', 'assign') && caseTransitions.includes('reassigned')
+
+  const fileDocuments = documents?.filter(
+    (d) => d.doc_type !== 'comment_attachment' && d.doc_type !== 'final_order_attachment',
+  )
 
   return (
     <div className="animate-rise">
@@ -118,12 +164,31 @@ export default function CaseDetailPage() {
         }
         actions={
           <>
-            <Button variant="secondary" onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Edit
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="size-4 text-danger" />
-            </Button>
+            {c.status !== 'draft' && (
+              <Button variant="secondary" onClick={() => navigate(`/cases/${caseId}/view-case-details`)}>
+                <FileSearch className="size-4" /> View case details
+              </Button>
+            )}
+            {hasPermission('cases', 'assign') && c.status !== 'closed' && (
+              <Button variant="secondary" onClick={() => setAssigning(true)}>
+                <UserPlus className="size-4" /> Assign
+              </Button>
+            )}
+            {canReassign && (
+              <Button variant="secondary" onClick={() => setReassigning(true)}>
+                <UserCog className="size-4" /> Reassign
+              </Button>
+            )}
+            {hasPermission('cases', 'update') && c.status !== 'closed' && (
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" /> Edit
+              </Button>
+            )}
+            {hasPermission('cases', 'delete') && (
+              <Button variant="ghost" aria-label="Delete case" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="size-4 text-danger" />
+              </Button>
+            )}
           </>
         }
       />
@@ -135,7 +200,7 @@ export default function CaseDetailPage() {
             <CardBody className="border-t border-border">
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                 <Detail label="Case type" value={c.case_type} />
-                <Detail label="Court" value={c.court_jurisdiction} />
+                <Detail label="Court" value={courtLabel(c.court_jurisdiction)} />
                 <Detail label="Region" value={c.region} />
                 <Detail label="Filing date" value={formatDate(c.filing_date)} />
                 <Detail label="Hearing date" value={formatDate(c.hearing_date)} />
@@ -148,6 +213,24 @@ export default function CaseDetailPage() {
                       : c.assigned_user_ids.map(nameOf).join(', ')
                   }
                 />
+                {c.reviewed_by && (
+                  <Detail
+                    label="Reviewed by"
+                    value={`${nameOf(c.reviewed_by)} · ${formatDateTime(c.reviewed_at)}`}
+                  />
+                )}
+                {c.approved_by && (
+                  <Detail
+                    label="Approved by"
+                    value={`${nameOf(c.approved_by)} · ${formatDateTime(c.approved_at)}`}
+                  />
+                )}
+                {c.rejected_by && (
+                  <Detail
+                    label="Rejected by"
+                    value={`${nameOf(c.rejected_by)} · ${formatDateTime(c.rejected_at)}`}
+                  />
+                )}
               </dl>
               {c.description && (
                 <div className="mt-5 border-t border-border pt-4">
@@ -162,47 +245,200 @@ export default function CaseDetailPage() {
             <CardHeader
               title="Activity & comments"
               description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'}`}
+              action={
+                <Link
+                  to={`/cases/${caseId}/history`}
+                  className="text-sm font-medium text-brand hover:text-brand-strong"
+                >
+                  View full history
+                </Link>
+              }
             />
             <CardBody className="border-t border-border">
-              <ul className="space-y-3">
-                {c.comments.length === 0 && (
-                  <li className="text-sm text-ink-muted">No comments yet.</li>
-                )}
-                {c.comments.map((text, i) => (
-                  <li
-                    key={i}
-                    className="rounded-control bg-surface-muted px-3.5 py-2.5 text-sm text-ink"
-                  >
-                    {text}
-                  </li>
-                ))}
-              </ul>
-              <form
-                onSubmit={(e: FormEvent) => {
-                  e.preventDefault()
-                  if (comment.trim()) commentMutation.mutate()
-                }}
-                className="mt-4 space-y-2"
+              <p className="mb-3 text-sm text-ink-muted">
+                Comments, mentions, attachments, and status changes for this case.
+              </p>
+              <Button
+                variant="secondary"
+                className="w-full justify-center"
+                onClick={() => navigate(`/cases/${caseId}/thread`)}
               >
-                <Textarea
-                  placeholder="Add a comment…"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={2}
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  loading={commentMutation.isPending}
-                  disabled={!comment.trim()}
-                >
-                  <MessageSquarePlus className="size-4" /> Comment
-                </Button>
-              </form>
+                <MessageSquarePlus className="size-4" /> Open thread
+              </Button>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Documents"
+              description={`${fileDocuments?.length ?? 0} file${fileDocuments?.length === 1 ? '' : 's'}`}
+              action={
+                c.status !== 'closed' && (
+                  <Button size="sm" variant="secondary" onClick={() => setUploading(true)}>
+                    <Plus className="size-4" /> Upload
+                  </Button>
+                )
+              }
+            />
+            <CardBody className="border-t border-border">
+              {c.status === 'closed' && (
+                <p className="mb-3 text-sm text-ink-muted">
+                  Documents are locked — this case is closed.
+                </p>
+              )}
+              {!fileDocuments || fileDocuments.length === 0 ? (
+                <p className="text-sm text-ink-muted">No documents attached yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {fileDocuments.map((doc) => {
+                    const latest = doc.versions[doc.versions.length - 1]
+                    const isOpen = expandedDoc === doc.id
+                    return (
+                      <li key={doc.id} className="rounded-control bg-surface-muted text-sm">
+                        <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedDoc(isOpen ? null : doc.id)}
+                            aria-label="Toggle versions"
+                            className="text-ink-muted hover:text-ink"
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )}
+                          </button>
+                          <FileText className="size-4 shrink-0 text-ink-muted" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-ink">{doc.title}</p>
+                            {latest && (
+                              <p className="text-xs text-ink-faint">
+                                {formatBytes(latest.file_size_bytes)} · {doc.versions.length} version
+                                {doc.versions.length === 1 ? '' : 's'} · {nameOf(doc.uploaded_by)},{' '}
+                                {formatDateTime(latest.uploaded_at)}
+                              </p>
+                            )}
+                          </div>
+                          {latest && (
+                            <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
+                              {humanize(latest.virus_scan_status)}
+                            </Badge>
+                          )}
+                          {latest && (
+                            <div className="flex gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`View ${doc.title}`}
+                                onClick={() =>
+                                  setPreviewTarget({
+                                    load: () => loadDocumentBlob(latest.storage_key),
+                                    mimeType: latest.mime_type,
+                                    title: doc.title,
+                                  })
+                                }
+                              >
+                                <Eye className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`Download ${doc.title}`}
+                                onClick={() => downloadDocument(latest.storage_key)}
+                              >
+                                <Download className="size-4" />
+                              </Button>
+                              {c.status !== 'closed' && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label={`Add version to ${doc.title}`}
+                                  onClick={() => setVersionFor(doc.id)}
+                                >
+                                  <FilePlus2 className="size-4" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {isOpen && (
+                          <div className="border-t border-border/60 px-3.5 py-2.5">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                              Version history
+                            </p>
+                            <ul className="space-y-1.5">
+                              {[...doc.versions]
+                                .sort((a, b) => b.version_number - a.version_number)
+                                .map((v, idx) => (
+                                  <li
+                                    key={v.id}
+                                    className="flex flex-wrap items-center gap-3 rounded-control bg-surface px-3 py-2 text-sm"
+                                  >
+                                    <Badge tone={idx === 0 ? 'brand' : 'neutral'}>
+                                      v{v.version_number}
+                                    </Badge>
+                                    <span className="text-ink-muted">
+                                      {formatBytes(v.file_size_bytes)}
+                                    </span>
+                                    <span className="text-ink-muted">{nameOf(v.uploaded_by)}</span>
+                                    <span className="text-ink-faint">
+                                      {formatDateTime(v.uploaded_at)}
+                                    </span>
+                                    {v.change_note && (
+                                      <span className="text-ink-muted">· {v.change_note}</span>
+                                    )}
+                                    <div className="ml-auto flex gap-1">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`View version ${v.version_number}`}
+                                        onClick={() =>
+                                          setPreviewTarget({
+                                            load: () => loadDocumentBlob(v.storage_key),
+                                            mimeType: v.mime_type,
+                                            title: `${doc.title} (v${v.version_number})`,
+                                          })
+                                        }
+                                      >
+                                        <Eye className="size-4" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`Download version ${v.version_number}`}
+                                        onClick={() => downloadDocument(v.storage_key)}
+                                      >
+                                        <Download className="size-4" />
+                                      </Button>
+                                      {idx !== 0 && (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          aria-label={`Roll back to version ${v.version_number}`}
+                                          loading={rollback.isPending}
+                                          onClick={() =>
+                                            rollback.mutate({ docId: doc.id, versionId: v.id })
+                                          }
+                                        >
+                                          <RotateCcw className="size-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </CardBody>
           </Card>
         </div>
 
+        {hasPermission('cases', 'update') && (
         <Card className="h-fit">
           <CardHeader title="Move status" description="Valid transitions from the current state" />
           <CardBody className="space-y-3 border-t border-border">
@@ -220,17 +456,38 @@ export default function CaseDetailPage() {
                 className="space-y-3"
               >
                 <Field label="New status">
-                  <Select
-                    value={nextStatus}
-                    onChange={(e) => setNextStatus(e.target.value as CaseStatus)}
-                  >
-                    <option value="">Select…</option>
-                    {allowed.map((s) => (
-                      <option key={s} value={s}>
-                        {humanize(s)}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="flex flex-wrap gap-2">
+                    {allowed.map((s) => {
+                      const needsAssignee = s === 'assigned' && c.assigned_user_ids.length === 0
+                      // Re-entering in_progress from approved/closed is a re-hearing -
+                      // the court re-listed the matter, so the internal workflow cycles
+                      // back rather than needing a dedicated status.
+                      const isRehearing =
+                        s === 'in_progress' && (c.status === 'approved' || c.status === 'closed')
+                      const label = isRehearing ? 'Re-hearing' : humanize(s)
+                      const tone = isRehearing ? 'warning' : STATUS_TONE[s]
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={needsAssignee}
+                          title={needsAssignee ? 'Assign someone to this case first' : undefined}
+                          onClick={() => setNextStatus(s)}
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-sm font-medium transition',
+                            TONES[tone],
+                            needsAssignee
+                              ? 'cursor-not-allowed opacity-40'
+                              : nextStatus === s
+                                ? 'ring-2 ring-brand ring-offset-1'
+                                : 'opacity-70 hover:opacity-100',
+                          )}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </Field>
                 <Field label="Comment" hint="Optional, recorded with the transition.">
                   <Textarea
@@ -251,9 +508,44 @@ export default function CaseDetailPage() {
             )}
           </CardBody>
         </Card>
+        )}
       </div>
 
       {editing && <EditCaseDialog open onClose={() => setEditing(false)} caseRecord={c} />}
+
+      <AssignDialog
+        open={assigning}
+        onClose={() => setAssigning(false)}
+        caseIds={[caseId]}
+        onDone={() => {}}
+      />
+
+      <ReassignDialog
+        open={reassigning}
+        onClose={() => setReassigning(false)}
+        caseId={caseId}
+        onDone={() => {}}
+      />
+
+      {uploading && (
+        <UploadDialog mode="new" caseId={caseId} open onClose={() => setUploading(false)} />
+      )}
+
+      {versionFor && (
+        <UploadDialog
+          mode="version"
+          documentId={versionFor}
+          caseId={caseId}
+          open
+          onClose={() => setVersionFor(null)}
+        />
+      )}
+
+      <DocumentPreviewDialog
+        open={!!previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        target={previewTarget}
+      />
 
       <Dialog
         open={confirmDelete}

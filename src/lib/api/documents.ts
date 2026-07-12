@@ -1,5 +1,5 @@
 import type { DocumentRecord, DocumentSearchFilters, DocumentUploadResponse } from '@/types'
-import { API_ORIGIN, get, post, toQuery } from './client'
+import { API_ORIGIN, del, get, getBlob, post, toQuery } from './client'
 import { getAccessToken } from './tokens'
 
 export interface UploadUrlPayload {
@@ -46,6 +46,12 @@ export function rollbackVersion(documentId: string, versionId: string): Promise<
   return post<DocumentRecord>(`/documents/${documentId}/versions/${versionId}/rollback`)
 }
 
+/** Permanent — removes the DB row and the storage blob for every version. Org/branch
+ * admin only. */
+export function deleteDocument(documentId: string): Promise<void> {
+  return del<void>(`/documents/${documentId}`)
+}
+
 function encodeStorageKey(storageKey: string): string {
   return storageKey.split('/').map(encodeURIComponent).join('/')
 }
@@ -63,16 +69,15 @@ export async function uploadFileBytes(uploadUrl: string, file: File): Promise<vo
   }
 }
 
+/** Fetches a document version's raw bytes - the shared loader DocumentPreviewDialog
+ * uses (via a PreviewTarget's `load`), also reused by downloadDocument below. */
+export function loadDocumentBlob(storageKey: string): Promise<Blob> {
+  return getBlob(`/documents/files/${encodeStorageKey(storageKey)}`)
+}
+
 /** Fetch a document version's bytes and trigger a browser download. */
 export async function downloadDocument(storageKey: string): Promise<void> {
-  const token = getAccessToken()
-  const res = await fetch(`${API_ORIGIN}/api/v1/documents/files/${encodeStorageKey(storageKey)}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`)
-  }
-  const blob = await res.blob()
+  const blob = await loadDocumentBlob(storageKey)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
