@@ -1,19 +1,107 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import { CheckCircle2, Copy, ShieldCheck } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { enrollMfa, verifyMfa } from '@/lib/api/auth'
+import { getMe, updateMe } from '@/lib/api/profile'
 import { ApiError } from '@/lib/api/client'
+import { qk } from '@/lib/queryKeys'
+import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, Input, Textarea } from '@/components/ui/Field'
 import { useAuth } from '@/auth/AuthContext'
 
 type Stage = 'idle' | 'enrolling' | 'verifying' | 'enabled'
 
-export default function SettingsPage() {
+function ProfileCard() {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const { data: profile, isLoading } = useQuery({ queryKey: qk.myProfile, queryFn: getMe })
+
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [bio, setBio] = useState('')
+
+  useEffect(() => {
+    if (!profile) return
+    setFullName(profile.full_name)
+    setPhone(profile.phone ?? '')
+    setBio(profile.bio ?? '')
+  }, [profile])
+
+  const mutation = useMutationWithToast({
+    mutationFn: () =>
+      updateMe({ full_name: fullName.trim(), phone: phone.trim() || null, bio: bio.trim() || null }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(qk.myProfile, updated)
+      toast('Profile updated.', 'success')
+    },
+    errorFallback: 'Could not update profile.',
+  })
+
+  if (isLoading || !profile) {
+    return (
+      <Card>
+        <CardHeader title="Profile" description="Loading…" />
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Profile"
+        description={profile.email}
+        action={
+          user?.is_org_admin ? (
+            <span className="text-xs font-medium text-brand">Organization admin</span>
+          ) : null
+        }
+      />
+      <CardBody className="border-t border-border">
+        <form
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault()
+            if (fullName.trim()) mutation.mutate()
+          }}
+          className="space-y-4"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name" required htmlFor="profile-name">
+              <Input
+                id="profile-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="Phone" htmlFor="profile-phone" hint="Optional.">
+              <Input id="profile-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Bio" htmlFor="profile-bio" hint="Optional — visible to your organization.">
+            <Textarea
+              id="profile-bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              placeholder="A short line about yourself…"
+            />
+          </Field>
+          <Button type="submit" loading={mutation.isPending} disabled={!fullName.trim()}>
+            Save
+          </Button>
+        </form>
+      </CardBody>
+    </Card>
+  )
+}
+
+export default function SettingsPage() {
   const { toast } = useToast()
   const [stage, setStage] = useState<Stage>('idle')
   const [secret, setSecret] = useState('')
@@ -55,22 +143,12 @@ export default function SettingsPage() {
   return (
     <div className="animate-rise">
       <PageHeader
-        title="Security"
-        description="Manage two-step verification for your account."
+        title="Settings"
+        description="Manage your profile and account security."
       />
 
       <div className="grid max-w-2xl gap-5">
-        <Card>
-          <CardHeader
-            title="Account"
-            description={user?.email ?? undefined}
-            action={
-              user?.is_org_admin ? (
-                <span className="text-xs font-medium text-brand">Organization admin</span>
-              ) : null
-            }
-          />
-        </Card>
+        <ProfileCard />
 
         <Card>
           <CardHeader

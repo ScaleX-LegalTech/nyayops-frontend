@@ -59,7 +59,7 @@ export function UserMenu() {
             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-muted"
           >
             <Settings className="size-4 text-ink-muted" />
-            Security & MFA
+            Profile & security
           </button>
           <button
             onClick={logout}
