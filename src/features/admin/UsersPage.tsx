@@ -1,6 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, KeyRound, Lock, Pencil, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
+import {
+  Building2,
+  KeyRound,
+  Lock,
+  MoreVertical,
+  Pencil,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import {
   adminResetPassword,
   assignRoles,
@@ -136,19 +147,13 @@ export default function UsersPage() {
                     </div>
                   </Td>
                   <Td>
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => setManagingRoles(u)}>
-                        <ShieldCheck className="size-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setResettingPassword(u)}>
-                        <KeyRound className="size-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(u)}>
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDeleting(u)}>
-                        <Trash2 className="size-4 text-danger" />
-                      </Button>
+                    <div className="flex justify-end">
+                      <RowActionsMenu
+                        onManageRoles={() => setManagingRoles(u)}
+                        onResetPassword={() => setResettingPassword(u)}
+                        onEdit={() => setEditing(u)}
+                        onDelete={() => setDeleting(u)}
+                      />
                     </div>
                   </Td>
                 </Tr>
@@ -161,6 +166,7 @@ export default function UsersPage() {
       {inviting && (
         <InviteDialog
           branches={branchesQuery.data ?? []}
+          roles={(rolesQuery.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
           isManagingDirector={isManagingDirector}
           onClose={() => setInviting(false)}
           onDone={invalidate}
@@ -228,13 +234,102 @@ export default function UsersPage() {
   )
 }
 
+function RowActionsMenu({
+  onManageRoles,
+  onResetPassword,
+  onEdit,
+  onDelete,
+}: {
+  onManageRoles: () => void
+  onResetPassword: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, right: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        !triggerRef.current?.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  function toggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    }
+    setOpen((v) => !v)
+  }
+
+  function run(action: () => void) {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <>
+      <Button size="icon" variant="ghost" ref={triggerRef} onClick={toggle} aria-label="Open actions">
+        <MoreVertical className="size-4" />
+      </Button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed w-48 overflow-hidden rounded-card border border-border bg-surface shadow-pop animate-rise"
+            style={{ top: pos.top, right: pos.right, zIndex: 'var(--z-dropdown)' }}
+          >
+          <button
+            onClick={() => run(onManageRoles)}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+          >
+            <ShieldCheck className="size-4 text-ink-muted" /> Manage roles
+          </button>
+          <button
+            onClick={() => run(onResetPassword)}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+          >
+            <KeyRound className="size-4 text-ink-muted" /> Reset password
+          </button>
+          <button
+            onClick={() => run(onEdit)}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+          >
+            <Pencil className="size-4 text-ink-muted" /> Edit user
+          </button>
+          <button
+            onClick={() => run(onDelete)}
+            className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-danger hover:bg-danger-soft"
+          >
+            <Trash2 className="size-4" /> Remove user
+          </button>
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 function InviteDialog({
   branches,
+  roles,
   isManagingDirector,
   onClose,
   onDone,
 }: {
   branches: Branch[]
+  roles: { id: string; name: string }[]
   isManagingDirector: boolean
   onClose: () => void
   onDone: () => void
@@ -245,12 +340,17 @@ function InviteDialog({
   const [phone, setPhone] = useState('')
   const [branchId, setBranchId] = useState('')
   const [isBranchAdmin, setIsBranchAdmin] = useState(false)
+  const [roleIds, setRoleIds] = useState<string[]>([])
+  function toggleRole(id: string) {
+    setRoleIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
   const mutation = useMutationWithToast({
     mutationFn: () =>
       inviteUser({
         email,
         full_name: fullName,
         phone: phone || undefined,
+        role_ids: roleIds,
         ...(isManagingDirector
           ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin }
           : {}),
@@ -319,6 +419,38 @@ function InviteDialog({
             </label>
           </>
         )}
+        <Field label="Roles" hint="Without a role the user will be locked out of most pages.">
+          {roles.length === 0 ? (
+            <p className="text-sm text-ink-muted">No roles defined yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {roles.map((r) => {
+                const checked = roleIds.includes(r.id)
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggleRole(r.id)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-control px-3 py-2.5 text-left text-sm',
+                      checked ? 'bg-brand-soft text-brand-strong' : 'hover:bg-surface-muted',
+                    )}
+                  >
+                    {r.name}
+                    <span
+                      className={cn(
+                        'grid size-5 place-items-center rounded border text-xs',
+                        checked ? 'border-brand bg-brand text-white' : 'border-border-strong',
+                      )}
+                    >
+                      {checked && '✓'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </Field>
       </form>
     </Dialog>
   )

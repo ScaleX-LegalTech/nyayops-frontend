@@ -77,10 +77,10 @@ export default function RolesPage() {
                 description={role.description ?? 'No description'}
                 action={
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(role)}>
+                    <Button size="icon" variant="ghost" aria-label={`Edit ${role.name}`} onClick={() => setEditing(role)}>
                       <Pencil className="size-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleting(role)}>
+                    <Button size="icon" variant="ghost" aria-label={`Delete ${role.name}`} onClick={() => setDeleting(role)}>
                       <Trash2 className="size-4 text-danger" />
                     </Button>
                   </div>

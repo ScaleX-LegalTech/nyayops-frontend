@@ -74,10 +74,10 @@ export default function BranchesPage() {
                 title={branch.name}
                 action={
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(branch)}>
+                    <Button size="icon" variant="ghost" aria-label={`Edit ${branch.name}`} onClick={() => setEditing(branch)}>
                       <Pencil className="size-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleting(branch)}>
+                    <Button size="icon" variant="ghost" aria-label={`Delete ${branch.name}`} onClick={() => setDeleting(branch)}>
                       <Trash2 className="size-4 text-danger" />
                     </Button>
                   </div>

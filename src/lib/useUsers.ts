@@ -13,7 +13,6 @@ export function useUsers() {
     queryKey: qk.users,
     queryFn: listUsers,
     retry: false,
-    staleTime: 5 * 60_000,
   })
   const users = useMemo(() => query.data ?? [], [query.data])
   const map = useMemo(() => new Map<string, User>(users.map((u) => [u.id, u])), [users])
