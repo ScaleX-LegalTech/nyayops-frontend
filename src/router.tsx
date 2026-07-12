@@ -23,6 +23,18 @@ export const router = createBrowserRouter([
           { path: 'dashboard', ...page(() => import('@/features/dashboard/DashboardPage')) },
           { path: 'cases', ...page(() => import('@/features/cases/CasesPage')) },
           { path: 'cases/:caseId', ...page(() => import('@/features/cases/CaseDetailPage')) },
+          {
+            path: 'cases/:caseId/view-case-details',
+            ...page(() => import('@/features/cases/CaseFullDetailsPage')),
+          },
+          {
+            path: 'cases/:caseId/history',
+            ...page(() => import('@/features/cases/CaseHistoryPage')),
+          },
+          {
+            path: 'cases/:caseId/thread',
+            ...page(() => import('@/features/cases/CaseThreadPage')),
+          },
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },

@@ -31,6 +31,7 @@ export interface InviteUserPayload {
   phone?: string
   branch_id?: string | null
   is_branch_admin?: boolean
+  role_ids?: string[]
 }
 
 export interface UpdateUserPayload {
@@ -68,6 +69,10 @@ export function assignRoles(userId: string, roleIds: string[]): Promise<User> {
 
 export function adminResetPassword(userId: string): Promise<void> {
   return post<void>(`/users/${userId}/reset-password`, undefined)
+}
+
+export function getMyPermissions(): Promise<Permission[]> {
+  return get<Permission[]>('/users/me/permissions')
 }
 
 // Roles ----------------------------------------------------------------------

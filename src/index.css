@@ -18,7 +18,7 @@
   --color-shell: oklch(0.2 0.05 240);
   --color-shell-soft: oklch(0.26 0.05 240);
   --color-accent: oklch(0.78 0.13 95);
-  --color-accent-strong: oklch(0.68 0.135 92);
+  --color-accent-strong: oklch(0.54 0.135 92);
 
   /* Surfaces + ink */
   --color-bg: oklch(0.985 0.004 235);
@@ -26,19 +26,19 @@
   --color-surface-muted: oklch(0.97 0.005 235);
   --color-ink: oklch(0.26 0.02 235);
   --color-ink-muted: oklch(0.5 0.018 235);
-  --color-ink-faint: oklch(0.62 0.015 235);
+  --color-ink-faint: oklch(0.55 0.015 235);
   --color-border: oklch(0.9 0.008 235);
   --color-border-strong: oklch(0.82 0.01 235);
 
   /* Status */
-  --color-success: oklch(0.55 0.11 150);
+  --color-success: oklch(0.52 0.11 150);
   --color-success-soft: oklch(0.95 0.04 150);
   --color-warning: oklch(0.7 0.13 50);
   --color-warning-strong: oklch(0.48 0.13 50);
   --color-warning-soft: oklch(0.96 0.05 60);
-  --color-danger: oklch(0.55 0.17 27);
+  --color-danger: oklch(0.54 0.17 27);
   --color-danger-soft: oklch(0.95 0.04 27);
-  --color-info: oklch(0.58 0.11 215);
+  --color-info: oklch(0.51 0.11 215);
   --color-info-soft: oklch(0.95 0.03 215);
 
   /* Radius */
@@ -54,6 +54,7 @@
   --z-sticky: 40;
   --z-drawer: 50;
   --z-modal: 60;
+  --z-popover: 65;
   --z-toast: 70;
 
   /* Motion */
@@ -140,4 +141,46 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* DatePicker (react-day-picker) — its own style.css is imported inside the component,
+   so it lands after this stylesheet in the bundle and wins equal-specificity ties.
+   !important here isn't sloppiness, it's the only reliable way to keep our compact
+   look regardless of import order. Scoped to .dp-panel so it can't leak elsewhere. */
+.dp-panel .rdp-month_caption {
+  align-items: center !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: var(--color-ink);
+}
+
+.dp-panel .rdp-weekday {
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  color: var(--color-ink-faint);
+}
+
+.dp-panel .rdp-button_previous,
+.dp-panel .rdp-button_next {
+  border-radius: 9999px;
+}
+
+.dp-panel .rdp-button_previous:hover:not([aria-disabled='true']),
+.dp-panel .rdp-button_next:hover:not([aria-disabled='true']) {
+  background: var(--color-surface-muted);
+}
+
+.dp-panel .rdp-selected {
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+}
+
+.dp-panel .rdp-selected .rdp-day_button {
+  border: none !important;
+  background: var(--color-brand) !important;
+  color: white !important;
+}
+
+.dp-panel .rdp-today:not(.rdp-selected) .rdp-day_button {
+  font-weight: 600 !important;
 }

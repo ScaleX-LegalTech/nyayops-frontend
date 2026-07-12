@@ -116,6 +116,19 @@ export const patch = <T>(path: string, body?: unknown) =>
 export const put = <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: 'PUT', body })
 export const del = <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' })
 
+/** For endpoints that return raw bytes (a file), not JSON - apiFetch always tries to
+ * JSON-parse the body, which doesn't work here. */
+export async function getBlob(path: string): Promise<Blob> {
+  const token = getAccessToken()
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, `Request failed (${res.status})`)
+  }
+  return res.blob()
+}
+
 /** Build a query string from a filters object, skipping empty values. */
 export function toQuery<T extends object>(params: T): string {
   const search = new URLSearchParams()

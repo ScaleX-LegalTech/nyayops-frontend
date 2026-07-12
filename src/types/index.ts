@@ -1,6 +1,7 @@
 // TS models mirroring the NyayOps backend Pydantic schemas.
 
 export const CASE_STATUSES = [
+  'draft',
   'new',
   'assigned',
   'in_progress',
@@ -16,36 +17,202 @@ export type CaseStatus = (typeof CASE_STATUSES)[number]
 
 export type CasePriority = 'low' | 'medium' | 'high' | 'urgent'
 
+export type CaseSource = 'manual' | 'cnr'
+
+export type CaseStage = 'filed' | 'pending' | 'reserved' | 'disposed'
+
+export interface CaseCommentAttachment {
+  id: string
+  title: string
+  mime_type: string
+  storage_key: string
+}
+
+export interface CaseComment {
+  id: string
+  author_id: string
+  comment: string
+  created_at: string
+  attachments: CaseCommentAttachment[]
+}
+
+export interface CaseParty {
+  id: string
+  role: string
+  name: string
+  advocate_name: string | null
+  created_at: string
+}
+
+export interface CaseHistoryEntry {
+  id: string
+  hearing_date: string | null
+  purpose: string | null
+  business_detail: string | null
+  judge: string | null
+  next_hearing_date: string | null
+  is_disposal: boolean
+  source: string
+  created_at: string
+}
+
 export interface Case {
   id: string
   tenant_id: string
   branch_id: string | null
   title: string
-  case_type: string
+  case_type: string | null
   client_name: string
-  court_jurisdiction: string
-  region: string
+  court_jurisdiction: string | null
+  region: string | null
   filing_date: string | null
   hearing_date: string | null
   priority: string
   status: CaseStatus
   description: string | null
+  source: CaseSource | null
+  cnr: string | null
+  court_type: string | null
+  case_stage: CaseStage | null
   assigned_user_ids: string[]
-  comments: string[]
+  created_by: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  approved_by: string | null
+  approved_at: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  comments: CaseComment[]
+  parties: CaseParty[]
+  history: CaseHistoryEntry[]
   created_at: string
 }
 
 export interface CaseCreateRequest {
   title: string
-  case_type: string
   client_name: string
-  court_jurisdiction: string
-  region: string
+  description?: string | null
+  priority?: string
+  assigned_user_ids?: string[]
+}
+
+export interface CaseDetailsRequest {
+  mode: 'cnr' | 'manual'
+  cnr?: string | null
+  court_type?: string | null
+  case_type?: string | null
+  court_jurisdiction?: string | null
+  region?: string | null
+  filing_date?: string | null
+  hearing_date?: string | null
+}
+
+export interface CaseDetailsResponse {
+  status: 'ready' | 'pending'
+  case: Case | null
+  job_id: string | null
+}
+
+export interface ManualActRow {
+  act: string
+  section: string | null
+}
+
+export interface ManualSubMatterRow {
+  case_number: string
+}
+
+export interface ManualOrderRow {
+  order_date: string | null
+  title: string
+  document_id: string | null
+  document_title: string | null
+  document_mime_type: string | null
+  document_storage_key: string | null
+}
+
+/** The verbose CNR-style detail (Case Details/Case Status/Acts/Sub Matters/Final
+ * Orders) a manually-entered case can optionally carry as a fallback when the CNR
+ * portal can't be scraped. Stored server-side as a JSON blob (not columns on the
+ * case), same pattern as the CNR raw document. */
+export interface ManualCaseDocument {
+  filing_number: string | null
+  registration_number: string | null
+  registration_date: string | null
+  first_hearing_date: string | null
+  decision_date: string | null
+  nature_of_disposal: string | null
+  court_number_and_judge: string | null
+  acts: ManualActRow[]
+  sub_matters: ManualSubMatterRow[]
+  final_orders: ManualOrderRow[]
+}
+
+export interface ManualCaseDetails {
+  case_type: string | null
+  client_name: string
+  court_jurisdiction: string | null
+  region: string | null
+  court_type: string | null
+  case_stage: CaseStage | null
+  filing_date: string | null
+  hearing_date: string | null
+  parties: CaseParty[]
+  history: CaseHistoryEntry[]
+  document: ManualCaseDocument | null
+  document_sections: Record<string, unknown>[]
+}
+
+export interface CaseFullDetailsResponse {
+  source: CaseSource | null
+  raw: Record<string, unknown> | null
+  manual: ManualCaseDetails | null
+}
+
+export interface CnrOrderDownloadResponse {
+  status: 'ready' | 'queued'
+  download_url?: string
+  expires_in_seconds?: number
+  job_id?: string
+}
+
+export interface CnrBusinessDetailResponse {
+  status: 'ready' | 'queued' | 'failed'
+  section: string
+  row: number
+  hearing_date: string | null
+  business_date: string | null
+  business_detail?: Record<string, unknown> | null
+  job_id?: string
+  error?: { code: string; message: string; retryable: boolean; retry_after_seconds?: number }
+}
+
+export interface CasePartyCreate {
+  role: string
+  name: string
+  advocate_name?: string | null
+}
+
+export interface CaseHistoryCreate {
+  hearing_date?: string | null
+  purpose?: string | null
+  business_detail?: string | null
+  judge?: string | null
+  next_hearing_date?: string | null
+  is_disposal?: boolean
+}
+
+export interface CaseUpdateRequest {
+  title?: string
+  case_type?: string | null
+  client_name?: string | null
+  court_jurisdiction?: string | null
+  region?: string | null
+  court_type?: string | null
   filing_date?: string | null
   hearing_date?: string | null
   priority?: string
   description?: string | null
-  assigned_user_ids?: string[]
 }
 
 export interface CaseSearchFilters {
@@ -165,11 +332,26 @@ export interface User {
   email: string
   full_name: string
   phone: string | null
+  bio: string | null
   is_org_admin: boolean
   is_branch_admin: boolean
   is_active: boolean
   is_restricted: boolean
   role_ids: string[]
+}
+
+export interface MyProfileUpdateRequest {
+  full_name?: string | null
+  phone?: string | null
+  bio?: string | null
+}
+
+/** Lightweight person record for case-scoped pickers (e.g. @mentions) - only
+ * includes people who can actually see a given case, unlike `User`. */
+export interface CasePerson {
+  id: string
+  full_name: string
+  email: string
 }
 
 export interface Branch {

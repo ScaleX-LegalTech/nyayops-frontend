@@ -1,12 +1,21 @@
 import {
+  Children,
   forwardRef,
+  isValidElement,
+  useMemo,
+  useState,
   type InputHTMLAttributes,
   type LabelHTMLAttributes,
+  type OptionHTMLAttributes,
+  type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react'
+import { createPortal } from 'react-dom'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useFloatingPanel, useOutsideClose } from './useFloatingPanel'
 
 const CONTROL =
   'w-full rounded-control border border-border-strong bg-surface px-3 py-2 text-sm text-ink ' +
@@ -25,15 +34,93 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   },
 )
 
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className, children, ...props }, ref) {
-    return (
-      <select ref={ref} className={cn(CONTROL, 'h-10 pr-8', className)} {...props}>
-        {children}
-      </select>
-    )
-  },
-)
+/** Native <select> popups are browser chrome — no rounded corners, no blur, can't be
+ * themed. This mimics the native API (value/onChange/<option> children) so it's a
+ * drop-in replacement, but renders its own portaled listbox to match the app's look. */
+export function Select({
+  className,
+  children,
+  value,
+  onChange,
+  disabled,
+  id,
+  'aria-label': ariaLabel,
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  const [open, setOpen] = useState(false)
+  const { triggerRef, panelRef, pos } = useFloatingPanel<HTMLButtonElement>(open)
+  useOutsideClose(open, [triggerRef, panelRef], () => setOpen(false))
+
+  const options = useMemo(
+    () =>
+      Children.toArray(children)
+        .filter((c): c is ReactElement<OptionHTMLAttributes<HTMLOptionElement>> => isValidElement(c))
+        .map((c) => ({
+          value: String(c.props.value ?? ''),
+          label: c.props.children,
+          disabled: c.props.disabled,
+        })),
+    [children],
+  )
+  const currentValue = String(value ?? '')
+  const selected = options.find((o) => o.value === currentValue)
+
+  function pick(v: string) {
+    onChange?.({ target: { value: v } } as React.ChangeEvent<HTMLSelectElement>)
+    setOpen(false)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        id={id}
+        ref={triggerRef}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(CONTROL, 'flex h-10 items-center justify-between gap-2 pr-3 text-left', className)}
+      >
+        <span className="truncate">{selected?.label ?? ' '}</span>
+        <ChevronDown className="size-4 shrink-0 text-ink-muted" />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="listbox"
+            className="scrollbar-thin fixed max-h-60 overflow-y-auto whitespace-nowrap rounded-xl border border-border/60 bg-surface/85 p-1 text-sm shadow-pop backdrop-blur-md animate-rise"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              minWidth: triggerRef.current?.offsetWidth,
+              zIndex: 'var(--z-popover)',
+            }}
+          >
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="option"
+                aria-selected={o.value === currentValue}
+                disabled={o.disabled}
+                onClick={() => pick(o.value)}
+                className={cn(
+                  'block w-full rounded-lg px-2.5 py-1.5 text-left font-normal',
+                  o.value === currentValue ? 'bg-brand text-white' : 'text-ink hover:bg-surface-muted',
+                  o.disabled && 'opacity-40',
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
 
 export function Label({ className, children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (

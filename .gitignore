@@ -31,3 +31,5 @@ dist-ssr
 # documentation files
 DESIGN.md
 PRODUCT.md
+
+package-lock.json

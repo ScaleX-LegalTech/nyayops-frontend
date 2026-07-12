@@ -34,6 +34,18 @@ export function humanize(value: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
+const COURT_TYPE_LABELS: Record<string, string> = {
+  high_court: 'High Court',
+  district_court: 'District Court',
+}
+
+/** Only relabels the known machine tokens CNR-sourced cases store - leaves any
+ * manually-typed jurisdiction text untouched. */
+export function courtLabel(value: string | null | undefined): string {
+  if (!value) return '—'
+  return COURT_TYPE_LABELS[value] ?? value
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?'

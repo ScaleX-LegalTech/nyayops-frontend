@@ -5,7 +5,7 @@ import { humanize } from '@/lib/format'
 
 export type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
 
-const TONES: Record<Tone, string> = {
+export const TONES: Record<Tone, string> = {
   neutral: 'bg-surface-muted text-ink-muted border-border',
   brand: 'bg-brand-soft text-brand-strong border-brand/20',
   success: 'bg-success-soft text-success border-success/20',
@@ -37,7 +37,8 @@ export function Badge({ tone = 'neutral', children, className, dot }: BadgeProps
   )
 }
 
-const STATUS_TONE: Record<CaseStatus, Tone> = {
+export const STATUS_TONE: Record<CaseStatus, Tone> = {
+  draft: 'neutral',
   new: 'neutral',
   assigned: 'info',
   in_progress: 'brand',
