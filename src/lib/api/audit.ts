@@ -6,6 +6,10 @@ export function listAuditLogs(): Promise<AuditLog[]> {
   return get<AuditLog[]>('/audit-logs')
 }
 
+export function listCaseActivity(caseId: string): Promise<AuditLog[]> {
+  return get<AuditLog[]>(`/cases/${caseId}/activity`)
+}
+
 /** Download the audit log CSV export with the bearer token attached. */
 export async function exportAuditLogsCsv(): Promise<void> {
   const token = getAccessToken()

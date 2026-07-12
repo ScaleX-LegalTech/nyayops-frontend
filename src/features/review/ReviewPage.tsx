@@ -1,17 +1,26 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { CheckCircle2, ClipboardCheck, MessageSquare, UserCog, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  MessageSquare,
+  PlayCircle,
+  UserCog,
+  XCircle,
+} from 'lucide-react'
 import {
   addCaseComment,
   approveCase,
   reassignCase,
   rejectCase,
   reviewQueue,
+  updateCaseStatus,
 } from '@/lib/api/cases'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { formatDate } from '@/lib/format'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
+import { usePermissions } from '@/lib/usePermissions'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -35,6 +44,7 @@ const ACTION_META: Record<Action, { title: string; verb: string }> = {
 export default function ReviewPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
   const [active, setActive] = useState<{ case: Case; action: Action } | null>(null)
   const [text, setText] = useState('')
   const [assignees, setAssignees] = useState<string[]>([])
@@ -42,6 +52,15 @@ export default function ReviewPage() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.reviewQueue,
     queryFn: reviewQueue,
+  })
+
+  const startReview = useMutationWithToast({
+    mutationFn: (caseId: string) => updateCaseStatus(caseId, 'under_review'),
+    onSuccess: () => {
+      invalidateCaseScopes(queryClient)
+      toast('Moved to review.', 'success')
+    },
+    errorFallback: 'Could not start review.',
   })
 
   function close() {
@@ -120,16 +139,57 @@ export default function ReviewPage() {
                   <Td className="text-ink-muted tabular">{formatDate(c.hearing_date)}</Td>
                   <Td>
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => setActive({ case: c, action: 'approve' })}>
-                        <CheckCircle2 className="size-4 text-success" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setActive({ case: c, action: 'reject' })}>
-                        <XCircle className="size-4 text-danger" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setActive({ case: c, action: 'reassign' })}>
-                        <UserCog className="size-4 text-ink-muted" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setActive({ case: c, action: 'comment' })}>
+                      {c.status === 'ready_for_review' ? (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Start review"
+                          aria-label="Start review"
+                          loading={startReview.isPending}
+                          onClick={() => startReview.mutate(c.id)}
+                        >
+                          <PlayCircle className="size-4 text-brand" />
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title={ACTION_META.approve.title}
+                            aria-label={ACTION_META.approve.title}
+                            onClick={() => setActive({ case: c, action: 'approve' })}
+                          >
+                            <CheckCircle2 className="size-4 text-success" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title={ACTION_META.reject.title}
+                            aria-label={ACTION_META.reject.title}
+                            onClick={() => setActive({ case: c, action: 'reject' })}
+                          >
+                            <XCircle className="size-4 text-danger" />
+                          </Button>
+                        </>
+                      )}
+                      {hasPermission('cases', 'assign') && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title={ACTION_META.reassign.title}
+                          aria-label={ACTION_META.reassign.title}
+                          onClick={() => setActive({ case: c, action: 'reassign' })}
+                        >
+                          <UserCog className="size-4 text-ink-muted" />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title={ACTION_META.comment.title}
+                        aria-label={ACTION_META.comment.title}
+                        onClick={() => setActive({ case: c, action: 'comment' })}
+                      >
                         <MessageSquare className="size-4 text-ink-muted" />
                       </Button>
                     </div>

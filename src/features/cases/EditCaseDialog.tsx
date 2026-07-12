@@ -7,7 +7,8 @@ import { useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
-import type { Case, CaseCreateRequest } from '@/types'
+import { DatePicker } from '@/components/ui/DatePicker'
+import type { Case, CaseUpdateRequest } from '@/types'
 
 const PRIORITIES = ['low', 'medium', 'high', 'urgent']
 
@@ -22,19 +23,20 @@ export function EditCaseDialog({
 }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [form, setForm] = useState<Partial<CaseCreateRequest>>({
+  const [form, setForm] = useState<CaseUpdateRequest>({
     title: caseRecord.title,
-    case_type: caseRecord.case_type,
-    client_name: caseRecord.client_name,
-    court_jurisdiction: caseRecord.court_jurisdiction,
-    region: caseRecord.region,
+    case_type: caseRecord.case_type ?? '',
+    client_name: caseRecord.client_name ?? '',
+    court_jurisdiction: caseRecord.court_jurisdiction ?? '',
+    region: caseRecord.region ?? '',
+    court_type: caseRecord.court_type ?? '',
     priority: caseRecord.priority,
     description: caseRecord.description ?? '',
     filing_date: caseRecord.filing_date ?? '',
     hearing_date: caseRecord.hearing_date ?? '',
   })
 
-  function set<K extends keyof CaseCreateRequest>(key: K, value: CaseCreateRequest[K]) {
+  function set<K extends keyof CaseUpdateRequest>(key: K, value: CaseUpdateRequest[K]) {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
@@ -42,6 +44,7 @@ export function EditCaseDialog({
     mutationFn: () =>
       updateCase(caseRecord.id, {
         ...form,
+        court_type: form.court_type || null,
         filing_date: form.filing_date || null,
         hearing_date: form.hearing_date || null,
         description: form.description || null,
@@ -99,19 +102,18 @@ export function EditCaseDialog({
           <Field label="Region">
             <Input value={form.region ?? ''} onChange={(e) => set('region', e.target.value)} />
           </Field>
+          <Field label="Court type">
+            <Select value={form.court_type ?? ''} onChange={(e) => set('court_type', e.target.value)}>
+              <option value="">Unspecified</option>
+              <option value="high_court">High Court</option>
+              <option value="district_court">District Court</option>
+            </Select>
+          </Field>
           <Field label="Filing date">
-            <Input
-              type="date"
-              value={form.filing_date ?? ''}
-              onChange={(e) => set('filing_date', e.target.value)}
-            />
+            <DatePicker value={form.filing_date ?? ''} onChange={(v) => set('filing_date', v)} />
           </Field>
           <Field label="Hearing date">
-            <Input
-              type="date"
-              value={form.hearing_date ?? ''}
-              onChange={(e) => set('hearing_date', e.target.value)}
-            />
+            <DatePicker value={form.hearing_date ?? ''} onChange={(v) => set('hearing_date', v)} />
           </Field>
           <Field label="Priority">
             <Select

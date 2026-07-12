@@ -1,27 +1,34 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Briefcase, Plus, Search, UserPlus } from 'lucide-react'
-import { listCases } from '@/lib/api/cases'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Archive, Briefcase, Plus, RotateCcw, Search, Trash2, UserPlus } from 'lucide-react'
+import { hardDeleteCase, listCases, listDeletedCases, restoreCase } from '@/lib/api/cases'
 import { listBranches } from '@/lib/api/admin'
-import { qk } from '@/lib/queryKeys'
+import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { CASE_STATUSES, type CaseStatus } from '@/types'
-import { formatDate, humanize } from '@/lib/format'
+import { courtLabel, formatDate, humanize } from '@/lib/format'
 import { useUsers } from '@/lib/useUsers'
 import { useAuth } from '@/auth/AuthContext'
+import { usePermissions } from '@/lib/usePermissions'
+import { useMutationWithToast } from '@/lib/useMutationWithToast'
+import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
+import { Dialog } from '@/components/ui/Dialog'
 import { PriorityBadge, StatusBadge } from '@/components/ui/Badge'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
-import { CaseFormDialog } from './CaseFormDialog'
+import { CaseWizardDialog } from './CaseWizardDialog'
 import { AssignDialog } from './AssignDialog'
 
 export default function CasesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { nameOf } = useUsers()
   const { isManagingDirector } = useAuth()
+  const { hasPermission } = usePermissions()
   const branchesQuery = useQuery({
     queryKey: qk.branches,
     queryFn: listBranches,
@@ -34,6 +41,8 @@ export default function CasesPage() {
   const [creating, setCreating] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
+  const [viewingDeleted, setViewingDeleted] = useState(false)
+  const [purging, setPurging] = useState<{ id: string; title: string } | null>(null)
 
   const filters = useMemo(
     () => ({ query: search || undefined, status: status || undefined }),
@@ -47,6 +56,32 @@ export default function CasesPage() {
   const cases = data ?? []
   const allSelected = cases.length > 0 && selected.length === cases.length
 
+  const deletedQuery = useQuery({
+    queryKey: qk.deletedCases,
+    queryFn: listDeletedCases,
+    enabled: viewingDeleted,
+  })
+
+  const restoreMutation = useMutationWithToast({
+    mutationFn: (caseId: string) => restoreCase(caseId),
+    onSuccess: () => {
+      invalidateCaseScopes(queryClient)
+      queryClient.invalidateQueries({ queryKey: qk.deletedCases })
+      toast('Case restored.', 'success')
+    },
+    errorFallback: 'Restore failed.',
+  })
+
+  const hardDeleteMutation = useMutationWithToast({
+    mutationFn: (caseId: string) => hardDeleteCase(caseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.deletedCases })
+      toast('Case permanently deleted.', 'success')
+      setPurging(null)
+    },
+    errorFallback: 'Could not permanently delete this case.',
+  })
+
   function toggle(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
   }
@@ -57,9 +92,18 @@ export default function CasesPage() {
         title="Cases"
         description="Every matter across your firm."
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" /> New case
-          </Button>
+          <>
+            {hasPermission('cases', 'delete') && (
+              <Button variant="secondary" onClick={() => setViewingDeleted(true)}>
+                <Archive className="size-4" /> Deleted cases
+              </Button>
+            )}
+            {hasPermission('cases', 'create') && (
+              <Button onClick={() => setCreating(true)}>
+                <Plus className="size-4" /> New case
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -96,9 +140,11 @@ export default function CasesPage() {
             <Button size="sm" variant="secondary" onClick={() => setSelected([])}>
               Clear
             </Button>
-            <Button size="sm" onClick={() => setAssigning(true)}>
-              <UserPlus className="size-4" /> Assign
-            </Button>
+            {hasPermission('cases', 'assign') && (
+              <Button size="sm" onClick={() => setAssigning(true)}>
+                <UserPlus className="size-4" /> Assign
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -114,9 +160,11 @@ export default function CasesPage() {
             title="No cases found"
             description="Adjust your filters or create the first case."
             action={
-              <Button onClick={() => setCreating(true)}>
-                <Plus className="size-4" /> New case
-              </Button>
+              hasPermission('cases', 'create') && (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus className="size-4" /> New case
+                </Button>
+              )
             }
           />
         </TableWrap>
@@ -158,12 +206,20 @@ export default function CasesPage() {
                       onChange={() => toggle(c.id)}
                     />
                   </Td>
-                  <Td className="font-medium text-ink">{c.title}</Td>
+                  <Td className="font-medium text-ink">
+                    <Link
+                      to={`/cases/${c.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded-control outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      {c.title}
+                    </Link>
+                  </Td>
                   {isManagingDirector && (
                     <Td className="text-ink-muted">{branchName(c.branch_id)}</Td>
                   )}
                   <Td className="text-ink-muted">{c.client_name}</Td>
-                  <Td className="text-ink-muted">{c.court_jurisdiction}</Td>
+                  <Td className="text-ink-muted">{courtLabel(c.court_jurisdiction)}</Td>
                   <Td>
                     <StatusBadge status={c.status} />
                   </Td>
@@ -183,13 +239,91 @@ export default function CasesPage() {
         </TableWrap>
       )}
 
-      <CaseFormDialog open={creating} onClose={() => setCreating(false)} />
+      <CaseWizardDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onFinished={(caseId) => navigate(`/cases/${caseId}`)}
+      />
       <AssignDialog
         open={assigning}
         onClose={() => setAssigning(false)}
         caseIds={selected}
         onDone={() => setSelected([])}
       />
+
+      <Dialog
+        open={viewingDeleted}
+        onClose={() => setViewingDeleted(false)}
+        title="Deleted cases"
+        description="Soft-deleted cases. Restore to bring one back."
+        size="lg"
+      >
+        {deletedQuery.isLoading ? (
+          <LoadingState />
+        ) : deletedQuery.isError ? (
+          <ErrorState error={deletedQuery.error} onRetry={deletedQuery.refetch} />
+        ) : !deletedQuery.data || deletedQuery.data.length === 0 ? (
+          <p className="text-sm text-ink-muted">No deleted cases.</p>
+        ) : (
+          <ul className="space-y-2">
+            {deletedQuery.data.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between gap-3 rounded-control bg-surface-muted px-3.5 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{c.title}</p>
+                  <p className="truncate text-xs text-ink-muted">{c.client_name}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={restoreMutation.isPending}
+                    onClick={() => restoreMutation.mutate(c.id)}
+                  >
+                    <RotateCcw className="size-4" /> Restore
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Permanently delete ${c.title}`}
+                    onClick={() => setPurging({ id: c.id, title: c.title })}
+                  >
+                    <Trash2 className="size-4 text-danger" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={purging !== null}
+        onClose={() => setPurging(null)}
+        title="Permanently delete case"
+        description="This cannot be undone - the case, its parties, history, and documents will be gone for good."
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPurging(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={hardDeleteMutation.isPending}
+              onClick={() => purging && hardDeleteMutation.mutate(purging.id)}
+            >
+              Delete permanently
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          Permanently delete <span className="font-medium text-ink">{purging?.title}</span>?
+        </p>
+      </Dialog>
     </div>
   )
 }
