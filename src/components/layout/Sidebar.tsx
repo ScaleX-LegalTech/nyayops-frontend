@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/auth/AuthContext'
+import { usePermissions } from '@/lib/usePermissions'
 import { NAV_GROUPS } from './nav'
 import { Wordmark } from './Wordmark'
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { isManagingDirector, isBranchAdmin } = useAuth()
+  const { hasPermission } = usePermissions()
   const isAdmin = isManagingDirector || isBranchAdmin
 
   return (
@@ -18,12 +20,13 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           const items = group.items.filter((item) => {
             if (item.mdOnly) return isManagingDirector
             if (item.adminOnly) return isAdmin
+            if (item.permission) return hasPermission(item.permission.resource, item.permission.action)
             return true
           })
           if (items.length === 0) return null
           return (
             <div key={group.label}>
-              <p className="px-3 pb-1.5 text-[0.68rem] font-semibold uppercase tracking-wider text-white/35">
+              <p className="px-3 pb-1.5 text-[0.68rem] font-semibold uppercase tracking-wider text-white/50">
                 {group.label}
               </p>
               <ul className="space-y-0.5">
@@ -51,7 +54,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
       </nav>
-      <div className="border-t border-white/10 px-5 py-3 text-xs text-white/40">
+      <div className="border-t border-white/10 px-5 py-3 text-xs text-white/55">
         NyayOps · Legal Operations
       </div>
     </div>

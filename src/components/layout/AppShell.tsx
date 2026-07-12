@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { Menu, X } from 'lucide-react'
@@ -8,6 +8,19 @@ import { UserMenu } from './UserMenu'
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    if (!drawerOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [drawerOpen])
 
   return (
     <div className="flex min-h-screen bg-bg">
@@ -25,7 +38,7 @@ export function AppShell() {
               <SidebarContent onNavigate={() => setDrawerOpen(false)} />
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="absolute right-3 top-4 text-white/60 hover:text-white"
+                className="absolute right-1 top-1 grid size-11 place-items-center text-white/60 hover:text-white"
                 aria-label="Close menu"
               >
                 <X className="size-5" />
@@ -42,7 +55,7 @@ export function AppShell() {
         >
           <button
             onClick={() => setDrawerOpen(true)}
-            className="grid size-9 place-items-center rounded-control text-ink-muted hover:bg-surface-muted lg:hidden"
+            className="grid size-11 place-items-center rounded-control text-ink-muted hover:bg-surface-muted lg:hidden"
             aria-label="Open menu"
           >
             <Menu className="size-5" />

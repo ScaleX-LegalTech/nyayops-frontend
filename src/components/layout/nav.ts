@@ -18,6 +18,8 @@ export interface NavItem {
   adminOnly?: boolean
   /** Restrict to Managing Directors only - branch management is org-wide. */
   mdOnly?: boolean
+  /** Hide unless the user holds this permission grant. */
+  permission?: { resource: string; action: string }
 }
 
 export interface NavGroup {
@@ -30,9 +32,24 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Workspace',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/cases', label: 'Cases', icon: Briefcase },
-      { to: '/review', label: 'Review queue', icon: ClipboardCheck },
-      { to: '/documents', label: 'Documents', icon: FileText },
+      {
+        to: '/cases',
+        label: 'Cases',
+        icon: Briefcase,
+        permission: { resource: 'cases', action: 'read' },
+      },
+      {
+        to: '/review',
+        label: 'Review queue',
+        icon: ClipboardCheck,
+        permission: { resource: 'cases', action: 'review' },
+      },
+      {
+        to: '/documents',
+        label: 'Documents',
+        icon: FileText,
+        permission: { resource: 'documents', action: 'read' },
+      },
     ],
   },
   {
