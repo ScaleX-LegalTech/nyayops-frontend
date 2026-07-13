@@ -103,18 +103,22 @@ export function CaseWizardDialog({
     onClose()
   }
 
-  const step1Mutation = useMutationWithToast({
-    mutationFn: () => createCase({ title, client_name: clientName, description: description || null, priority }),
-    onSuccess: (created) => {
-      setCaseRecord(created)
-      setStep(2)
-    },
-    errorFallback: 'Could not create case.',
-  })
-
   const detailsMutation = useMutationWithToast({
-    mutationFn: () =>
-      addCaseDetails(caseRecord!.id, {
+    mutationFn: async () => {
+      // Case creation is deferred to here (rather than step 1's "Next") so that
+      // closing the wizard on step 2 without submitting anything never leaves a
+      // persisted, empty-shell "Draft" case behind.
+      let record = caseRecord
+      if (!record) {
+        record = await createCase({
+          title,
+          client_name: clientName,
+          description: description || null,
+          priority,
+        })
+        setCaseRecord(record)
+      }
+      return addCaseDetails(record.id, {
         mode,
         cnr: mode === 'cnr' ? cnr : undefined,
         court_type: courtType || null,
@@ -123,7 +127,8 @@ export function CaseWizardDialog({
         region: mode === 'manual' ? region : undefined,
         filing_date: mode === 'manual' ? filingDate || null : undefined,
         hearing_date: mode === 'manual' ? hearingDate || null : undefined,
-      }),
+      })
+    },
     onSuccess: (resp) => {
       if (resp.status === 'pending') {
         setPendingJobId(resp.job_id)
@@ -225,7 +230,6 @@ export function CaseWizardDialog({
             <Button
               type="submit"
               form="wizard-step1"
-              loading={step1Mutation.isPending}
               disabled={!title.trim() || !clientName.trim()}
             >
               Next
@@ -273,7 +277,7 @@ export function CaseWizardDialog({
           id="wizard-step1"
           onSubmit={(e: FormEvent) => {
             e.preventDefault()
-            step1Mutation.mutate()
+            setStep(2)
           }}
           className="space-y-4"
         >
@@ -303,7 +307,7 @@ export function CaseWizardDialog({
         </form>
       )}
 
-      {step === 2 && caseRecord && (
+      {step === 2 && (
         <div className="space-y-5">
           {!detailsReady && (
             <>
