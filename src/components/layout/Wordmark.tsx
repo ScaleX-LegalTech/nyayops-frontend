@@ -7,7 +7,7 @@ export function Wordmark({ className }: { className?: string }) {
       <span className="grid size-9 place-items-center rounded-control bg-accent/15 text-accent">
         <Scale className="size-5" />
       </span>
-      <span className="font-display text-xl font-semibold tracking-tight text-white">
+      <span className="type-page-title text-xl text-ink">
         Nyay<span className="text-accent">Ops</span>
       </span>
     </div>

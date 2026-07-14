@@ -1,53 +1,73 @@
 @import 'tailwindcss';
 
 /*
-  NyayOps design tokens — "ledger blue".
-  Light-first, cobalt brand, gold accent, sans-only type system.
-  See DESIGN.md. OKLCH throughout.
+  NyayOps design tokens — "Stone & Bronze".
+  Warm stone neutrals, bronze accent, serif page titles only, 2px radius, hairline borders.
+  See DESIGN.md.
 */
 @theme {
-  /* Fonts */
-  --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Fonts — serif is the one flourish (page titles/greetings only), sans for everything else.
+     `--font-display` is kept as an alias so existing page-title call sites (PageHeader,
+     AuthLayout, Wordmark) don't need touching — it now resolves to the serif stack. */
+  --font-serif: 'Source Serif 4', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-display: var(--font-serif);
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
-  /* Brand + shell */
-  --color-brand: oklch(0.48 0.15 235);
-  --color-brand-strong: oklch(0.38 0.14 235);
-  --color-brand-soft: oklch(0.95 0.03 235);
-  --color-shell: oklch(0.2 0.05 240);
-  --color-shell-soft: oklch(0.26 0.05 240);
-  --color-accent: oklch(0.78 0.13 95);
-  --color-accent-strong: oklch(0.54 0.135 92);
+  /* Brand (bronze accent — rules + primary actions only, never large fills) + shell */
+  --color-brand: #8C6A2E;
+  --color-brand-strong: #6E5424;
+  --color-brand-soft: #F1E9D8;
+  --color-shell: #E4E1D8;
+  --color-shell-soft: #DAD6C9;
+  --color-accent: #8C6A2E;
+  --color-accent-strong: #6E5424;
 
-  /* Surfaces + ink */
-  --color-bg: oklch(0.985 0.004 235);
-  --color-surface: oklch(1 0 0);
-  --color-surface-muted: oklch(0.97 0.005 235);
-  --color-ink: oklch(0.26 0.02 235);
-  --color-ink-muted: oklch(0.5 0.018 235);
-  --color-ink-faint: oklch(0.55 0.015 235);
-  --color-border: oklch(0.9 0.008 235);
-  --color-border-strong: oklch(0.82 0.01 235);
+  /* Surfaces + ink — limestone bg, never pure white/black */
+  --color-bg: #EDEBE6;
+  --color-surface: #FCFBF8;
+  --color-surface-muted: #F8F7F3;
+  --color-ink: #232320;
+  --color-ink-muted: #6E6A61;
+  --color-ink-faint: #9A968C;
+  --color-border: #D8D4C8;
+  --color-border-strong: #C9C4B5;
 
-  /* Status */
-  --color-success: oklch(0.52 0.11 150);
-  --color-success-soft: oklch(0.95 0.04 150);
-  --color-warning: oklch(0.7 0.13 50);
-  --color-warning-strong: oklch(0.48 0.13 50);
-  --color-warning-soft: oklch(0.96 0.05 60);
-  --color-danger: oklch(0.54 0.17 27);
-  --color-danger-soft: oklch(0.95 0.04 27);
-  --color-info: oklch(0.51 0.11 215);
-  --color-info-soft: oklch(0.95 0.03 215);
+  /* Urgency ramp (the one status system that should visually shout) */
+  --color-urgent: #7A3B32;
+  --color-soon: #8C6A2E;
+  --color-normal: #3C4A52;
 
-  /* Radius */
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
+  /* Payment status ramp — reuses urgency hues where states overlap */
+  --color-pay-req: #6E6A61;
+  --color-pay-rem: #8C6A2E;
+  --color-pay-rec: #3F5C43;
+  --color-pay-over: #7A3B32;
 
-  /* Shadow (defined, ≤ 8px blur — never paired with borders) */
-  --shadow-card: 0 1px 2px oklch(0.2 0.04 235 / 0.06), 0 4px 8px oklch(0.2 0.04 235 / 0.05);
-  --shadow-pop: 0 8px 24px oklch(0.2 0.04 235 / 0.14);
+  /* Role indicators — desaturated, quiet labels not a legend */
+  --color-role-a: #3C4A52;
+  --color-role-b: #5C5540;
+  --color-role-c: #6E6A61;
+  --color-role-d: #8C6A2E;
+
+  /* Status semantics used across existing components (Badge tones, etc.) */
+  --color-success: #3F5C43;
+  --color-success-soft: #E7EDE7;
+  --color-warning: #8C6A2E;
+  --color-warning-strong: #6E5424;
+  --color-warning-soft: #F1E9D8;
+  --color-danger: #7A3B32;
+  --color-danger-soft: #F2E4E1;
+  --color-info: #3C4A52;
+  --color-info-soft: #E4E8EA;
+
+  /* Radius — 2px everywhere, no rounded cards, no pill badges */
+  --radius-card: 2px;
+  --radius-control: 2px;
+
+  /* Shadow — kept minimal, reserved for floating/portaled panels only (never cards/modals) */
+  --shadow-card: none;
+  --shadow-pop: 0 8px 24px rgb(35 35 32 / 0.16);
 
   /* Semantic z-index scale */
   --z-dropdown: 30;
@@ -83,9 +103,7 @@
   }
 
   h1, h2, h3 {
-    font-family: var(--font-display);
-    font-weight: 560;
-    letter-spacing: -0.02em;
+    font-weight: 600;
     text-wrap: balance;
   }
 
@@ -129,6 +147,73 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  /* Hairline borders everywhere — a 0.5px border reads precise, a full 1px reads
+     heavier and slightly cheaper at this information density. Overrides Tailwind's
+     default 1px border utilities globally; last-declared same-specificity rule wins. */
+  .border, .border-t, .border-b, .border-l, .border-r, .border-x, .border-y {
+    border-width: 0.5px;
+  }
+
+  /* The one serif touchpoint — page titles and dashboard greetings only. Never body
+     copy, never case/client names, never buttons. */
+  .type-page-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+  }
+  .type-greeting {
+    font-family: var(--font-serif);
+    font-weight: 400;
+  }
+
+  /* Uppercase section eyebrows ("OPEN ISSUES") need extra tracking to stay legible small. */
+  .type-label {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Mono identifiers — reference numbers, timestamps, audit entries. Loosened tracking
+     is what makes a reference number feel "filed" rather than just typed differently. */
+  .type-mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
+  }
+
+  /* Status dot — the ONLY status pattern in this system. No filled pill badges. */
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+
+  /* The entire decorative budget for a screen: a bronze rule under a page/section
+     heading. Use once per screen, under the top-level heading only — never per-card. */
+  .rule-accent {
+    height: 1px;
+    width: 64px;
+    background: linear-gradient(to right, var(--color-brand), transparent);
+  }
+
+  /* Left-border urgency strip — case rows, calendar entries, dashboard list items.
+     Set the color inline to urgent/soon/normal per row. */
+  .urgency-strip {
+    border-left: 2px solid transparent;
+  }
+
+  /* Metadata tag (court, role, date) — bordered box, no status meaning. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--color-ink-muted);
+    background: var(--color-surface-muted);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-control);
+    padding: 3px 9px;
   }
 }
 

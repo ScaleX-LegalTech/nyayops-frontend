@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { deleteBranch, listBranches } from '@/lib/api/admin'
+import { Building2, Lock, Pencil, Plus, Trash2, Unlock } from 'lucide-react'
+import { deleteBranch, freezeBranch, listBranches } from '@/lib/api/admin'
 import { qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { Card, CardHeader } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { BranchFormDialog } from './BranchFormDialog'
@@ -33,6 +33,15 @@ export default function BranchesPage() {
       setDeleting(null)
     },
     errorFallback: 'Delete failed.',
+  })
+
+  const toggleFreeze = useMutationWithToast({
+    mutationFn: ({ id, isFrozen }: { id: string; isFrozen: boolean }) => freezeBranch(id, isFrozen),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: qk.branches })
+      toast(updated.is_frozen ? 'Branch frozen — read-only.' : 'Branch unfrozen.', 'success')
+    },
+    errorFallback: 'Could not update freeze status.',
   })
 
   const branches = data ?? []
@@ -69,9 +78,18 @@ export default function BranchesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {branches.map((branch) => (
-            <Card key={branch.id}>
+            <Card key={branch.id} className={branch.is_frozen ? 'urgency-strip' : undefined}
+              style={branch.is_frozen ? { borderLeftColor: 'var(--color-urgent)' } : undefined}
+            >
               <CardHeader
                 title={branch.name}
+                description={
+                  branch.is_frozen ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-danger">
+                      <span className="dot bg-urgent" aria-hidden /> frozen — read-only
+                    </span>
+                  ) : undefined
+                }
                 action={
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" aria-label={`Edit ${branch.name}`} onClick={() => setEditing(branch)}>
@@ -83,6 +101,24 @@ export default function BranchesPage() {
                   </div>
                 }
               />
+              <CardBody className="border-t border-border pt-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={toggleFreeze.isPending}
+                  onClick={() => toggleFreeze.mutate({ id: branch.id, isFrozen: !branch.is_frozen })}
+                >
+                  {branch.is_frozen ? (
+                    <>
+                      <Unlock className="size-4" /> Unfreeze branch
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="size-4" /> Freeze branch (read-only)
+                    </>
+                  )}
+                </Button>
+              </CardBody>
             </Card>
           ))}
         </div>

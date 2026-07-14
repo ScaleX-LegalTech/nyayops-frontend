@@ -41,6 +41,7 @@ import { AssignDialog } from './AssignDialog'
 import { ReassignDialog } from './ReassignDialog'
 import { UploadDialog } from '@/features/documents/UploadDialog'
 import { SCAN_TONE } from '@/features/documents/DocumentsPage'
+import { CaseLifecycleTracker } from './CaseLifecycleTracker'
 import { cn } from '@/lib/cn'
 
 const REVIEWER_ONLY_STATUSES: CaseStatus[] = ['under_review', 'approved', 'rejected', 'closed']
@@ -192,6 +193,10 @@ export default function CaseDetailPage() {
           </>
         }
       />
+
+      <div className="mb-5">
+        <CaseLifecycleTracker c={c} />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-5">
@@ -440,7 +445,10 @@ export default function CaseDetailPage() {
 
         {hasPermission('cases', 'update') && (
         <Card className="h-fit">
-          <CardHeader title="Move status" description="Valid transitions from the current state" />
+          <CardHeader
+            title="Internal review status"
+            description="Firm-side review/approval workflow — separate from the litigation stage above"
+          />
           <CardBody className="space-y-3 border-t border-border">
             {allowed.length === 0 ? (
               <p className="text-sm text-ink-muted">
@@ -474,7 +482,7 @@ export default function CaseDetailPage() {
                           title={needsAssignee ? 'Assign someone to this case first' : undefined}
                           onClick={() => setNextStatus(s)}
                           className={cn(
-                            'rounded-full border px-3 py-1.5 text-sm font-medium transition',
+                            'rounded-control border px-3 py-1.5 text-sm font-medium transition',
                             TONES[tone],
                             needsAssignee
                               ? 'cursor-not-allowed opacity-40'

@@ -140,7 +140,7 @@ export function RoleFormDialog({
                           type="button"
                           onClick={() => toggle(p)}
                           className={cn(
-                            'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                            'rounded-control border px-2.5 py-1 text-xs font-medium transition-colors',
                             active
                               ? 'border-brand bg-brand text-white'
                               : 'border-border-strong text-ink-muted hover:border-brand hover:text-brand',

@@ -43,6 +43,10 @@ export const router = createBrowserRouter([
             element: <RequireManagingDirector />,
             children: [
               { path: 'admin/branches', ...page(() => import('@/features/admin/BranchesPage')) },
+              {
+                path: 'admin/branch-admins',
+                ...page(() => import('@/features/admin/BranchAdminsPage')),
+              },
             ],
           },
           { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },

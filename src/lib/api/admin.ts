@@ -11,6 +11,10 @@ export function listBranches(): Promise<Branch[]> {
   return get<Branch[]>('/branches')
 }
 
+export function getBranch(branchId: string): Promise<Branch> {
+  return get<Branch>(`/branches/${branchId}`)
+}
+
 export function createBranch(payload: BranchPayload): Promise<Branch> {
   return post<Branch>('/branches', payload)
 }
@@ -21,6 +25,10 @@ export function updateBranch(branchId: string, payload: Partial<BranchPayload>):
 
 export function deleteBranch(branchId: string): Promise<void> {
   return del<void>(`/branches/${branchId}`)
+}
+
+export function freezeBranch(branchId: string, isFrozen: boolean): Promise<Branch> {
+  return patch<Branch>(`/branches/${branchId}/freeze`, { is_frozen: isFrozen })
 }
 
 // Users ----------------------------------------------------------------------

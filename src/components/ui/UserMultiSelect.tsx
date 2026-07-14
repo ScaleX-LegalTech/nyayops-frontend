@@ -1,6 +1,6 @@
 import { cn } from '@/lib/cn'
-import { initials } from '@/lib/format'
 import { useUsers } from '@/lib/useUsers'
+import { PersonAvatar } from '@/components/ui/Avatar'
 
 interface UserMultiSelectProps {
   selected: string[]
@@ -38,9 +38,7 @@ export function UserMultiSelect({ selected, onChange, emptyHint }: UserMultiSele
               checked ? 'bg-brand-soft' : 'hover:bg-surface-muted',
             )}
           >
-            <span className="grid size-7 place-items-center rounded-full bg-shell text-xs font-semibold text-white">
-              {initials(u.full_name)}
-            </span>
+            <PersonAvatar label={u.full_name} size="sm" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-ink">{u.full_name}</span>
               <span className="block truncate text-xs text-ink-muted">{u.email}</span>

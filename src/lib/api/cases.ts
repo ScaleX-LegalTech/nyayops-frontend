@@ -5,6 +5,7 @@ import type {
   CaseDetailsResponse,
   CaseFullDetailsResponse,
   CaseHistoryCreate,
+  CaseLifecycleStage,
   CasePartyCreate,
   CasePerson,
   CaseSearchFilters,
@@ -128,6 +129,17 @@ export function updateCaseStatus(
   comment?: string,
 ): Promise<Case> {
   return patch<Case>(`/cases/${caseId}/status`, { status, comment })
+}
+
+export function updateCaseLifecycleStage(
+  caseId: string,
+  lifecycleStage: CaseLifecycleStage,
+  comment?: string,
+): Promise<Case> {
+  return patch<Case>(`/cases/${caseId}/lifecycle-stage`, {
+    lifecycle_stage: lifecycleStage,
+    comment,
+  })
 }
 
 export function bulkAssignCases(caseIds: string[], assignedUserIds: string[]): Promise<Case[]> {

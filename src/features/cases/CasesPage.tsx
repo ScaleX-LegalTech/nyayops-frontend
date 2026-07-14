@@ -16,11 +16,19 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { Dialog } from '@/components/ui/Dialog'
-import { PriorityBadge, StatusBadge } from '@/components/ui/Badge'
-import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
+import { StatusBadge } from '@/components/ui/Badge'
+import { EntityAvatar, PersonAvatar } from '@/components/ui/Avatar'
+import { TableWrap } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { CaseWizardDialog } from './CaseWizardDialog'
 import { AssignDialog } from './AssignDialog'
+
+/** Priority -> urgency ramp CSS var, for the row's left-border strip. */
+const URGENCY_VAR: Record<string, string> = {
+  urgent: '--color-urgent',
+  high: '--color-soon',
+  medium: '--color-normal',
+}
 
 export default function CasesPage() {
   const navigate = useNavigate()
@@ -169,74 +177,79 @@ export default function CasesPage() {
           />
         </TableWrap>
       ) : (
-        <TableWrap>
-          <Table>
-            <THead>
-              <Tr>
-                <Th className="w-10">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all"
-                    checked={allSelected}
-                    onChange={(e) => setSelected(e.target.checked ? cases.map((c) => c.id) : [])}
-                  />
-                </Th>
-                <Th>Title</Th>
-                {isManagingDirector && <Th>Branch</Th>}
-                <Th>Client</Th>
-                <Th>Court</Th>
-                <Th>Status</Th>
-                <Th>Priority</Th>
-                <Th>Assignees</Th>
-                <Th>Hearing</Th>
-              </Tr>
-            </THead>
-            <TBody>
-              {cases.map((c) => (
-                <Tr
-                  key={c.id}
-                  className="cursor-pointer hover:bg-surface-muted"
-                  onClick={() => navigate(`/cases/${c.id}`)}
-                >
-                  <Td onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${c.title}`}
-                      checked={selected.includes(c.id)}
-                      onChange={() => toggle(c.id)}
-                    />
-                  </Td>
-                  <Td className="font-medium text-ink">
-                    <Link
-                      to={`/cases/${c.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded-control outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      {c.title}
-                    </Link>
-                  </Td>
-                  {isManagingDirector && (
-                    <Td className="text-ink-muted">{branchName(c.branch_id)}</Td>
-                  )}
-                  <Td className="text-ink-muted">{c.client_name}</Td>
-                  <Td className="text-ink-muted">{courtLabel(c.court_jurisdiction)}</Td>
-                  <Td>
-                    <StatusBadge status={c.status} />
-                  </Td>
-                  <Td>
-                    <PriorityBadge priority={c.priority} />
-                  </Td>
-                  <Td className="text-ink-muted">
-                    {c.assigned_user_ids.length === 0
-                      ? '—'
-                      : c.assigned_user_ids.map(nameOf).join(', ')}
-                  </Td>
-                  <Td className="text-ink-muted tabular">{formatDate(c.hearing_date)}</Td>
-                </Tr>
-              ))}
-            </TBody>
-          </Table>
-        </TableWrap>
+        <div className="rounded-card border border-border bg-surface">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-2">
+            <input
+              type="checkbox"
+              aria-label="Select all"
+              checked={allSelected}
+              onChange={(e) => setSelected(e.target.checked ? cases.map((c) => c.id) : [])}
+            />
+            <span className="type-label text-ink-faint">
+              {cases.length} case{cases.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          {cases.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => navigate(`/cases/${c.id}`)}
+              className="urgency-strip flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-surface-muted"
+              style={{ borderLeftColor: `var(${URGENCY_VAR[c.priority] ?? '--color-border'})` }}
+            >
+              <input
+                type="checkbox"
+                aria-label={`Select ${c.title}`}
+                checked={selected.includes(c.id)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggle(c.id)}
+              />
+              <EntityAvatar label={c.title} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Link
+                    to={`/cases/${c.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate text-sm font-medium text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    {c.title}
+                  </Link>
+                  <StatusBadge status={c.status} />
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="chip">{c.client_name}</span>
+                  <span className="chip">{courtLabel(c.court_jurisdiction)}</span>
+                  {isManagingDirector && <span className="chip">{branchName(c.branch_id)}</span>}
+                  <span className="chip">{humanize(c.priority)} priority</span>
+                </div>
+              </div>
+              <div className="hidden shrink-0 items-center -space-x-1.5 sm:flex">
+                {c.assigned_user_ids.length === 0 ? (
+                  <span className="text-xs text-ink-faint">Unassigned</span>
+                ) : (
+                  c.assigned_user_ids
+                    .slice(0, 3)
+                    .map((id) => (
+                      <PersonAvatar
+                        key={id}
+                        label={nameOf(id)}
+                        size="sm"
+                        className="ring-2 ring-surface"
+                      />
+                    ))
+                )}
+                {c.assigned_user_ids.length > 3 && (
+                  <span className="type-mono text-ink-faint">
+                    +{c.assigned_user_ids.length - 3}
+                  </span>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="type-mono text-ink-muted">{formatDate(c.hearing_date)}</p>
+                <p className="type-label mt-0.5 text-ink-faint">Hearing</p>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       <CaseWizardDialog

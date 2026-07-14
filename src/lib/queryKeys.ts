@@ -23,10 +23,13 @@ export const qk = {
   myPermissions: ['me', 'permissions'] as const,
   myProfile: ['me', 'profile'] as const,
   branches: ['branches'] as const,
+  branchDetail: (id: string) => ['branches', 'detail', id] as const,
   roles: ['roles'] as const,
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
   notifications: ['notifications'] as const,
+  organization: ['organization'] as const,
+  branchAdmins: ['branch-admins'] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */

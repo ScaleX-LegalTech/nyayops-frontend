@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
-import { CheckCircle2, Copy, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, Copy, Lock, ShieldCheck, Unlock } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { enrollMfa, verifyMfa } from '@/lib/api/auth'
 import { getMe, updateMe } from '@/lib/api/profile'
+import { getOrganization, setOrganizationFreeze } from '@/lib/api/organization'
+import { freezeBranch, getBranch } from '@/lib/api/admin'
 import { ApiError } from '@/lib/api/client'
 import { qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
@@ -101,8 +103,105 @@ function ProfileCard() {
   )
 }
 
+function OrganizationFreezeCard() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { data: org } = useQuery({ queryKey: qk.organization, queryFn: getOrganization })
+
+  const mutation = useMutationWithToast({
+    mutationFn: (isFrozen: boolean) => setOrganizationFreeze(isFrozen),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(qk.organization, updated)
+      toast(
+        updated.is_frozen
+          ? 'Organization frozen — every write is blocked until you unfreeze it.'
+          : 'Organization unfrozen.',
+        'success',
+      )
+    },
+    errorFallback: 'Could not update freeze status.',
+  })
+
+  if (!org) return null
+
+  return (
+    <Card className={org.is_frozen ? 'urgency-strip' : undefined} style={org.is_frozen ? { borderLeftColor: 'var(--color-urgent)' } : undefined}>
+      <CardHeader
+        title="Organization freeze"
+        description={
+          org.is_frozen
+            ? 'Read-only for everyone, including you, until you unfreeze it.'
+            : 'A last-resort lockdown — e.g. a billing dispute or suspected compromise.'
+        }
+        action={
+          <span className="grid size-9 place-items-center rounded-control bg-danger-soft text-danger">
+            {org.is_frozen ? <Lock className="size-5" /> : <Unlock className="size-5" />}
+          </span>
+        }
+      />
+      <CardBody className="border-t border-border">
+        <Button
+          variant={org.is_frozen ? 'secondary' : 'danger'}
+          loading={mutation.isPending}
+          onClick={() => mutation.mutate(!org.is_frozen)}
+        >
+          {org.is_frozen ? 'Unfreeze organization' : 'Freeze organization'}
+        </Button>
+      </CardBody>
+    </Card>
+  )
+}
+
+function BranchFreezeCard({ branchId }: { branchId: string }) {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { data: branch } = useQuery({
+    queryKey: qk.branchDetail(branchId),
+    queryFn: () => getBranch(branchId),
+  })
+
+  const mutation = useMutationWithToast({
+    mutationFn: (isFrozen: boolean) => freezeBranch(branchId, isFrozen),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(qk.branchDetail(branchId), updated)
+      toast(updated.is_frozen ? 'Branch frozen — read-only.' : 'Branch unfrozen.', 'success')
+    },
+    errorFallback: 'Could not update freeze status.',
+  })
+
+  if (!branch) return null
+
+  return (
+    <Card className={branch.is_frozen ? 'urgency-strip' : undefined} style={branch.is_frozen ? { borderLeftColor: 'var(--color-urgent)' } : undefined}>
+      <CardHeader
+        title={`${branch.name} — freeze`}
+        description={
+          branch.is_frozen
+            ? 'Read-only for your branch until you unfreeze it.'
+            : 'Pause your branch’s day-to-day writes, e.g. during a handover.'
+        }
+        action={
+          <span className="grid size-9 place-items-center rounded-control bg-danger-soft text-danger">
+            {branch.is_frozen ? <Lock className="size-5" /> : <Unlock className="size-5" />}
+          </span>
+        }
+      />
+      <CardBody className="border-t border-border">
+        <Button
+          variant={branch.is_frozen ? 'secondary' : 'danger'}
+          loading={mutation.isPending}
+          onClick={() => mutation.mutate(!branch.is_frozen)}
+        >
+          {branch.is_frozen ? 'Unfreeze branch' : 'Freeze branch'}
+        </Button>
+      </CardBody>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const { toast } = useToast()
+  const { user, isManagingDirector, isBranchAdmin } = useAuth()
   const [stage, setStage] = useState<Stage>('idle')
   const [secret, setSecret] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
@@ -239,6 +338,9 @@ export default function SettingsPage() {
             )}
           </CardBody>
         </Card>
+
+        {isManagingDirector && <OrganizationFreezeCard />}
+        {isBranchAdmin && !isManagingDirector && user?.bid && <BranchFreezeCard branchId={user.bid} />}
       </div>
     </div>
   )

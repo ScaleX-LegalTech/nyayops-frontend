@@ -30,7 +30,7 @@ export function AppShell() {
         createPortal(
           <div className="lg:hidden" style={{ zIndex: 'var(--z-drawer)', position: 'fixed', inset: 0 }}>
             <div
-              className="absolute inset-0 bg-shell/50"
+              className="absolute inset-0 bg-black/40"
               onClick={() => setDrawerOpen(false)}
               aria-hidden
             />
@@ -38,7 +38,7 @@ export function AppShell() {
               <SidebarContent onNavigate={() => setDrawerOpen(false)} />
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="absolute right-1 top-1 grid size-11 place-items-center text-white/60 hover:text-white"
+                className="absolute right-1 top-1 grid size-11 place-items-center text-ink-muted hover:text-ink"
                 aria-label="Close menu"
               >
                 <X className="size-5" />

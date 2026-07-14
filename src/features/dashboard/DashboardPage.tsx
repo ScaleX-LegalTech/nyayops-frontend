@@ -11,7 +11,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { AlertTriangle, Briefcase, ClipboardClock, Users } from 'lucide-react'
+import {
+  AlertTriangle,
+  Briefcase,
+  ClipboardClock,
+  ClipboardList,
+  IndianRupee,
+  Users,
+} from 'lucide-react'
 import {
   getActivity,
   getCasesByStatus,
@@ -24,6 +31,7 @@ import { humanize, formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/Badge'
+import { EntityAvatar } from '@/components/ui/Avatar'
 import { EmptyState, LoadingState } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
 import type { LucideIcon } from 'lucide-react'
@@ -46,7 +54,7 @@ function KpiCard({
           <Icon className="size-5" />
         </span>
       </div>
-      <p className="mt-4 font-display text-3xl font-semibold tabular text-ink">
+      <p className="mt-4 text-3xl font-semibold tabular text-ink">
         {value ?? '—'}
       </p>
       <p className="mt-1 text-sm text-ink-muted">{label}</p>
@@ -105,7 +113,7 @@ export default function DashboardPage() {
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Cases by status" description="Distribution across the workflow" />
+          <CardHeader title="Case snapshot" description="Distribution across the workflow" />
           <CardBody className="border-t border-border">
             {statusData.length === 0 ? (
               <EmptyState title="No cases yet" />
@@ -147,7 +155,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Top courts" description="Where your caseload concentrates" />
+          <CardHeader title="Court-wise snapshot" description="Where your caseload concentrates" />
           <CardBody className="border-t border-border">
             {courtData.length === 0 ? (
               <EmptyState title="No court data yet" />
@@ -177,19 +185,19 @@ export default function DashboardPage() {
           <CardHeader title="Activity today" />
           <CardBody className="grid grid-cols-3 gap-3 border-t border-border text-center">
             <div>
-              <p className="font-display text-2xl font-semibold tabular text-ink">
+              <p className="text-2xl font-semibold tabular text-ink">
                 {activity.data?.active_users_today ?? '—'}
               </p>
               <p className="mt-1 text-xs text-ink-muted">Active users</p>
             </div>
             <div>
-              <p className="font-display text-2xl font-semibold tabular text-ink">
+              <p className="text-2xl font-semibold tabular text-ink">
                 {activity.data?.cases_in_progress ?? '—'}
               </p>
               <p className="mt-1 text-xs text-ink-muted">In progress</p>
             </div>
             <div>
-              <p className="font-display text-2xl font-semibold tabular text-ink">
+              <p className="text-2xl font-semibold tabular text-ink">
                 {activity.data?.notifications_sent ?? '—'}
               </p>
               <p className="mt-1 text-xs text-ink-muted">Alerts sent</p>
@@ -211,25 +219,50 @@ export default function DashboardPage() {
             {(overdue.data ?? []).length === 0 ? (
               <EmptyState title="Nothing overdue" description="Your team is on track." />
             ) : (
-              <ul className="divide-y divide-border">
+              <div className="divide-y divide-border">
                 {(overdue.data ?? []).slice(0, 6).map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      to={`/cases/${c.id}`}
-                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-surface-muted"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink">{c.title}</p>
-                        <p className="text-xs text-ink-muted">
-                          {c.client_name} · Hearing {formatDate(c.hearing_date)}
-                        </p>
-                      </div>
-                      <StatusBadge status={c.status} />
-                    </Link>
-                  </li>
+                  <Link
+                    key={c.id}
+                    to={`/cases/${c.id}`}
+                    className="urgency-strip flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
+                    style={{ borderLeftColor: 'var(--color-urgent)' }}
+                  >
+                    <EntityAvatar label={c.title} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{c.title}</p>
+                      <p className="text-xs text-ink-muted">
+                        {c.client_name} · Hearing {formatDate(c.hearing_date)}
+                      </p>
+                    </div>
+                    <StatusBadge status={c.status} />
+                  </Link>
                 ))}
-              </ul>
+              </div>
             )}
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Open issues" description="Document Missing / Info Needed / Blocker flags raised across all cases" />
+          <CardBody className="border-t border-border">
+            <EmptyState
+              icon={ClipboardList}
+              title="Not tracked yet"
+              description="Issue threads (advocate → associate escalation) aren't built on the backend yet — this snapshot will populate once that lands."
+            />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="Payment status" description="Bills sent vs. received vs. overdue, by client" />
+          <CardBody className="border-t border-border">
+            <EmptyState
+              icon={IndianRupee}
+              title="Not tracked yet"
+              description="Fee milestones and payment status (Requested → Reminded → Received) aren't built on the backend yet — this snapshot will populate once that lands."
+            />
           </CardBody>
         </Card>
       </div>

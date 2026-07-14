@@ -21,6 +21,18 @@ export type CaseSource = 'manual' | 'cnr'
 
 export type CaseStage = 'filed' | 'pending' | 'reserved' | 'disposed'
 
+export const CASE_LIFECYCLE_STAGES = [
+  'collection',
+  'scrutiny',
+  'filed',
+  'cnr_linked',
+  'research_draft',
+  'hearing',
+  'disposed',
+] as const
+
+export type CaseLifecycleStage = (typeof CASE_LIFECYCLE_STAGES)[number]
+
 export interface CaseCommentAttachment {
   id: string
   title: string
@@ -74,6 +86,7 @@ export interface Case {
   cnr: string | null
   court_type: string | null
   case_stage: CaseStage | null
+  lifecycle_stage: CaseLifecycleStage | null
   assigned_user_ids: string[]
   created_by: string
   reviewed_by: string | null
@@ -358,7 +371,36 @@ export interface Branch {
   id: string
   tenant_id: string
   name: string
+  is_frozen: boolean
   created_at: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  is_frozen: boolean
+}
+
+export interface BranchAdminPermissions {
+  user_id: string
+  full_name: string
+  email: string
+  branch_id: string | null
+  branch_name: string | null
+  case_reassignment: boolean
+  fee_milestone_setting: boolean
+  precedent_sharing: boolean
+  invite_team_members: boolean
+  document_access_full: boolean
+}
+
+export interface BranchAdminPermissionsUpdate {
+  branch_id: string
+  case_reassignment: boolean
+  fee_milestone_setting: boolean
+  precedent_sharing: boolean
+  invite_team_members: boolean
+  document_access_full: boolean
 }
 
 export interface Permission {

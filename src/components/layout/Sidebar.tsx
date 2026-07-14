@@ -11,7 +11,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = isManagingDirector || isBranchAdmin
 
   return (
-    <div className="flex h-full flex-col bg-shell text-white/70">
+    <div className="flex h-full flex-col bg-shell text-ink-muted">
       <div className="px-5 py-5">
         <Wordmark />
       </div>
@@ -26,9 +26,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           if (items.length === 0) return null
           return (
             <div key={group.label}>
-              <p className="px-3 pb-1.5 text-[0.68rem] font-semibold uppercase tracking-wider text-white/50">
-                {group.label}
-              </p>
+              <p className="type-label px-3 pb-1.5 text-ink-faint">{group.label}</p>
               <ul className="space-y-0.5">
                 {items.map((item) => (
                   <li key={item.to}>
@@ -39,8 +37,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                         cn(
                           'flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-colors',
                           isActive
-                            ? 'bg-white/10 text-white'
-                            : 'text-white/65 hover:bg-white/5 hover:text-white',
+                            ? 'bg-brand-soft text-brand-strong'
+                            : 'text-ink-muted hover:bg-shell-soft hover:text-ink',
                         )
                       }
                     >
@@ -54,7 +52,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
       </nav>
-      <div className="border-t border-white/10 px-5 py-3 text-xs text-white/55">
+      <div className="border-t border-border px-5 py-3 text-xs text-ink-faint">
         NyayOps · Legal Operations
       </div>
     </div>
