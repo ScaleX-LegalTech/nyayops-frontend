@@ -33,17 +33,55 @@ export const CASE_LIFECYCLE_STAGES = [
 
 export type CaseLifecycleStage = (typeof CASE_LIFECYCLE_STAGES)[number]
 
-/** Mirrors LIFECYCLE_TRANSITIONS in domain/case_fsm.py - the backend is the source of
- * truth for enforcement, this just avoids a round-trip 400 for obviously-invalid
- * clicks in CaseLifecycleTracker. */
-export const LIFECYCLE_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
+/** Groups the 7 stages into the 4 parts the case-detail lifecycle tracker renders -
+ * mirrors how the firm actually thinks about the SOP (Collection & Scrutiny happen
+ * together, Suit & CNR happen together, ...). Purely a display grouping - the backend
+ * has no notion of "parts", only the 7 CaseLifecycleStage values. */
+export const CASE_LIFECYCLE_PARTS: { name: string; stages: CaseLifecycleStage[] }[] = [
+  { name: 'Collection & Scrutiny', stages: ['collection', 'scrutiny'] },
+  { name: 'Suit & CNR', stages: ['filed', 'cnr_linked'] },
+  { name: 'Research, Draft & Hearing', stages: ['research_draft', 'hearing'] },
+  { name: 'Disposed', stages: ['disposed'] },
+]
+
+/** Mirrors FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS in domain/case_fsm.py - the backend
+ * is the source of truth for enforcement, this just avoids a round-trip 400 for
+ * obviously-invalid clicks in CaseLifecycleTracker. Forward moves may be gated (see
+ * GATED_LIFECYCLE_STAGES/REQUIRED_DOC_TYPE_FOR below); backward moves never are. */
+export const FORWARD_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
   collection: ['scrutiny'],
-  scrutiny: ['collection', 'filed'],
+  scrutiny: ['filed'],
   filed: ['cnr_linked', 'research_draft'],
   cnr_linked: ['research_draft'],
   research_draft: ['hearing'],
-  hearing: ['research_draft', 'disposed'],
-  disposed: ['research_draft'],
+  hearing: ['disposed'],
+  disposed: [],
+}
+
+export const BACKWARD_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
+  collection: [],
+  scrutiny: ['collection'],
+  filed: ['scrutiny'],
+  cnr_linked: ['filed'],
+  research_draft: ['filed'],
+  hearing: ['research_draft'],
+  disposed: ['hearing', 'research_draft'],
+}
+
+/** filed/cnr_linked are only ever entered via the File suit / Link CNR dialogs (they
+ * collect data a bare stage click can't) - mirrors GATED_STAGES in domain/case_fsm.py. */
+export const GATED_LIFECYCLE_STAGES: CaseLifecycleStage[] = ['filed', 'cnr_linked']
+
+/** Mirrors REQUIRED_DOC_TYPE_FOR in domain/case_fsm.py - the one curated document type
+ * that must be on file before leaving each stage going forward. Backward moves are
+ * never gated by this. */
+export const REQUIRED_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
+  collection: 'collection_document',
+  scrutiny: 'scrutiny_report',
+  filed: 'filing_document',
+  cnr_linked: 'filing_document',
+  research_draft: 'research_draft_document',
+  hearing: 'hearing_report',
 }
 
 /** Curated suggestions per stage for the document-upload form - not a closed set, the
@@ -93,6 +131,11 @@ export interface CaseHistoryEntry {
   created_at: string
 }
 
+export interface CaseLifecycleHistoryEntry {
+  stage: CaseLifecycleStage
+  entered_at: string
+}
+
 export interface Case {
   id: string
   tenant_id: string
@@ -125,6 +168,7 @@ export interface Case {
   comments: CaseComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
+  lifecycle_history: CaseLifecycleHistoryEntry[]
   created_at: string
 }
 
