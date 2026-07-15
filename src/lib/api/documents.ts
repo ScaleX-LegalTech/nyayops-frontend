@@ -56,12 +56,16 @@ function encodeStorageKey(storageKey: string): string {
   return storageKey.split('/').map(encodeURIComponent).join('/')
 }
 
-/** PUT raw file bytes to the storage upload URL returned by createUploadUrl. */
+/** PUT raw file bytes to the storage upload URL returned by createUploadUrl.
+ * The URL is absolute for presigned object storage (auth is in the query string,
+ * and an Authorization header would be rejected alongside it), or relative to our
+ * own API for the local-disk storage backend. */
 export async function uploadFileBytes(uploadUrl: string, file: File): Promise<void> {
+  const isPresigned = /^https?:\/\//.test(uploadUrl)
   const token = getAccessToken()
-  const res = await fetch(`${API_ORIGIN}${uploadUrl}`, {
+  const res = await fetch(isPresigned ? uploadUrl : `${API_ORIGIN}${uploadUrl}`, {
     method: 'PUT',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: !isPresigned && token ? { Authorization: `Bearer ${token}` } : {},
     body: file,
   })
   if (!res.ok) {
