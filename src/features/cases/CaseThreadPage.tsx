@@ -191,7 +191,7 @@ export default function CaseThreadPage() {
             <form
               onSubmit={(e: FormEvent) => {
                 e.preventDefault()
-                if (comment.trim()) commentMutation.mutate()
+                if (comment.trim() && !commentMutation.isPending) commentMutation.mutate()
               }}
               className="space-y-2 rounded-card border border-border bg-surface px-4 py-3"
             >

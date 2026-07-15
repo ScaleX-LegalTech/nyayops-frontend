@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Menu, X } from 'lucide-react'
+import { enablePushNotifications, ensureFreshPushSubscription, isPushSupported } from '@/lib/push'
+import { playNotificationSound } from '@/lib/notificationSound'
+import { qk } from '@/lib/queryKeys'
+import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
 import { NotificationsBell } from './NotificationsBell'
 import { UserMenu } from './UserMenu'
 
+// How long to let the shell render before asking - a permission prompt on a blank
+// screen reads as spam.
+const PUSH_PROMPT_DELAY_MS = 2000
+
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -22,6 +33,37 @@ export function AppShell() {
     }
   }, [drawerOpen])
 
+  useEffect(() => {
+    if (!isPushSupported()) return
+    if (Notification.permission === 'default') {
+      // Only ask if the browser has never been asked before - 'granted'/'denied' are
+      // permanent per-origin decisions the browser already remembers, and
+      // re-prompting a user who denied it once is exactly the annoyance we're
+      // avoiding.
+      const timer = setTimeout(() => {
+        enablePushNotifications().catch(() => {})
+      }, PUSH_PROMPT_DELAY_MS)
+      return () => clearTimeout(timer)
+    }
+    if (Notification.permission === 'granted') {
+      // Silently repairs a subscription left pointing at a rotated/old VAPID key -
+      // otherwise push just stops arriving with no visible error anywhere.
+      ensureFreshPushSubscription().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    function onMessage(event: MessageEvent) {
+      if (event.data?.type !== 'push-notification') return
+      queryClient.invalidateQueries({ queryKey: qk.notifications })
+      playNotificationSound()
+      toast(event.data.title || 'New notification', 'info')
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [queryClient, toast])
+
   return (
     <div className="flex min-h-screen bg-bg">
       <Sidebar />
@@ -30,7 +72,7 @@ export function AppShell() {
         createPortal(
           <div className="lg:hidden" style={{ zIndex: 'var(--z-drawer)', position: 'fixed', inset: 0 }}>
             <div
-              className="absolute inset-0 bg-shell/50"
+              className="absolute inset-0 bg-black/40"
               onClick={() => setDrawerOpen(false)}
               aria-hidden
             />
@@ -38,7 +80,7 @@ export function AppShell() {
               <SidebarContent onNavigate={() => setDrawerOpen(false)} />
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="absolute right-1 top-1 grid size-11 place-items-center text-white/60 hover:text-white"
+                className="absolute right-1 top-1 grid size-11 place-items-center text-ink-muted hover:text-ink"
                 aria-label="Close menu"
               >
                 <X className="size-5" />

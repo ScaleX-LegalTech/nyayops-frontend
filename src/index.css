@@ -1,53 +1,31 @@
 @import 'tailwindcss';
+@import './tokens.css';
 
 /*
-  NyayOps design tokens — "ledger blue".
-  Light-first, cobalt brand, gold accent, sans-only type system.
-  See DESIGN.md. OKLCH throughout.
+  NyayOps design tokens — "Ledger Blue" (see DESIGN.md).
+  Cool near-white working surface, deep navy sidebar shell, confident cobalt brand,
+  single warm gold accent. 12px card / 8px control radius, 1px borders. All status
+  tokens carry a verified-contrast "-soft" background pair for icon-anchored badges.
+  Colors live in tokens.css - re-theme the whole app by editing values there, not here.
 */
 @theme {
-  /* Fonts */
-  --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Fonts — Outfit is the one flourish (page titles, KPI numbers, wordmark), Public
+     Sans carries everything else. `--font-display` is kept as an alias so existing
+     page-title call sites (PageHeader, AuthLayout, Wordmark) don't need touching. */
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
-  /* Brand + shell */
-  --color-brand: oklch(0.48 0.15 235);
-  --color-brand-strong: oklch(0.38 0.14 235);
-  --color-brand-soft: oklch(0.95 0.03 235);
-  --color-shell: oklch(0.2 0.05 240);
-  --color-shell-soft: oklch(0.26 0.05 240);
-  --color-accent: oklch(0.78 0.13 95);
-  --color-accent-strong: oklch(0.54 0.135 92);
+  /* Radius — 12px cards, 8px controls, pills/tags full-round */
+  --radius-card: 12px;
+  --radius-control: 8px;
 
-  /* Surfaces + ink */
-  --color-bg: oklch(0.985 0.004 235);
-  --color-surface: oklch(1 0 0);
-  --color-surface-muted: oklch(0.97 0.005 235);
-  --color-ink: oklch(0.26 0.02 235);
-  --color-ink-muted: oklch(0.5 0.018 235);
-  --color-ink-faint: oklch(0.55 0.015 235);
-  --color-border: oklch(0.9 0.008 235);
-  --color-border-strong: oklch(0.82 0.01 235);
-
-  /* Status */
-  --color-success: oklch(0.52 0.11 150);
-  --color-success-soft: oklch(0.95 0.04 150);
-  --color-warning: oklch(0.7 0.13 50);
-  --color-warning-strong: oklch(0.48 0.13 50);
-  --color-warning-soft: oklch(0.96 0.05 60);
-  --color-danger: oklch(0.54 0.17 27);
-  --color-danger-soft: oklch(0.95 0.04 27);
-  --color-info: oklch(0.51 0.11 215);
-  --color-info-soft: oklch(0.95 0.03 215);
-
-  /* Radius */
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
-
-  /* Shadow (defined, ≤ 8px blur — never paired with borders) */
-  --shadow-card: 0 1px 2px oklch(0.2 0.04 235 / 0.06), 0 4px 8px oklch(0.2 0.04 235 / 0.05);
-  --shadow-pop: 0 8px 24px oklch(0.2 0.04 235 / 0.14);
+  /* Shadow — a card is a border OR a shadow, never both; shadow reserved for
+     floating/portaled panels (popovers, dialogs, dropdowns). Tinted from --color-shell
+     (via relative color syntax) rather than a hardcoded value, so it stays in sync
+     with tokens.css if the shell color ever changes. */
+  --shadow-card: none;
+  --shadow-pop: 0 8px 24px oklch(from var(--color-shell) l c h / 0.18);
 
   /* Semantic z-index scale */
   --z-dropdown: 30;
@@ -83,9 +61,7 @@
   }
 
   h1, h2, h3 {
-    font-family: var(--font-display);
-    font-weight: 560;
-    letter-spacing: -0.02em;
+    font-weight: 600;
     text-wrap: balance;
   }
 
@@ -96,7 +72,7 @@
   :focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 6px;
   }
 
   ::selection {
@@ -129,6 +105,64 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  /* Display touchpoint — page titles, dashboard greetings, KPI numbers, wordmark.
+     Never body copy, never case/client names, never buttons. */
+  .type-page-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .type-greeting {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  /* Uppercase section eyebrows ("OPEN ISSUES") need extra tracking to stay legible small. */
+  .type-label {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Mono identifiers — reference numbers, timestamps, audit entries. Loosened tracking
+     is what makes a reference number feel "filed" rather than just typed differently. */
+  .type-mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
+  }
+
+  /* Status dot — quiet workflow states (neutral/info/brand/accent tones) that don't
+     need an icon-anchored badge. Full-round, paired with a label, never color alone. */
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+
+  /* The entire decorative budget for a screen: a brand-color rule under a page/section
+     heading. Use once per screen, under the top-level heading only — never per-card. */
+  .rule-accent {
+    height: 2px;
+    width: 64px;
+    border-radius: 9999px;
+    background: linear-gradient(to right, var(--color-brand), transparent);
+  }
+
+  /* Metadata tag (court, role, date) — bordered box, no status meaning. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--color-ink-muted);
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    padding: 3px 9px;
   }
 }
 
