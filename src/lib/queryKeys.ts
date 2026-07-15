@@ -29,6 +29,7 @@ export const qk = {
   auditLogs: ['audit-logs'] as const,
   notifications: ['notifications'] as const,
   organization: ['organization'] as const,
+  organizationName: ['organization', 'name'] as const,
   branchAdmins: ['branch-admins'] as const,
 }
 

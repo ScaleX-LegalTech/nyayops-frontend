@@ -15,6 +15,18 @@ import { useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { DOC_TYPE_OPTIONS } from '@/types'
+
+const OTHER_DOC_TYPE = '__other__'
+
+// Every curated suggestion across stages, deduped by value - used when the case isn't
+// locked in yet (or has no lifecycle stage) and stage-specific filtering isn't possible.
+const ALL_DOC_TYPE_OPTIONS = Array.from(
+  Object.values(DOC_TYPE_OPTIONS)
+    .flat()
+    .reduce((map, o) => map.set(o.value, o), new Map<string, { value: string; label: string }>())
+    .values(),
+)
 
 interface BaseProps {
   open: boolean
@@ -42,7 +54,8 @@ export function UploadDialog(props: UploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [caseId, setCaseId] = useState(lockedCaseId ?? '')
   const [title, setTitle] = useState('')
-  const [docType, setDocType] = useState('')
+  const [docTypeChoice, setDocTypeChoice] = useState('')
+  const [docTypeOther, setDocTypeOther] = useState('')
   const [changeNote, setChangeNote] = useState('')
 
   const casesQuery = useQuery({
@@ -50,6 +63,12 @@ export function UploadDialog(props: UploadDialogProps) {
     queryFn: () => listCases(),
     enabled: open && mode === 'new',
   })
+
+  const selectedCase = casesQuery.data?.find((c) => c.id === caseId)
+  const docTypeSuggestions = selectedCase
+    ? DOC_TYPE_OPTIONS[selectedCase.lifecycle_stage ?? 'collection']
+    : ALL_DOC_TYPE_OPTIONS
+  const docType = docTypeChoice === OTHER_DOC_TYPE ? docTypeOther : docTypeChoice
 
   const mutation = useMutationWithToast({
     mutationFn: async () => {
@@ -85,7 +104,8 @@ export function UploadDialog(props: UploadDialogProps) {
     setFile(null)
     setCaseId(lockedCaseId ?? '')
     setTitle('')
-    setDocType('')
+    setDocTypeChoice('')
+    setDocTypeOther('')
     setChangeNote('')
   }
 
@@ -94,7 +114,7 @@ export function UploadDialog(props: UploadDialogProps) {
     mutation.mutate()
   }
 
-  const valid = file && (mode === 'version' || (caseId && title && docType))
+  const valid = file && (mode === 'version' || (caseId && title && docType.trim()))
 
   return (
     <Dialog
@@ -138,13 +158,26 @@ export function UploadDialog(props: UploadDialogProps) {
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
               </Field>
               <Field label="Document type" required>
-                <Input
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                  placeholder="Pleading, Evidence…"
-                  required
-                />
+                <Select value={docTypeChoice} onChange={(e) => setDocTypeChoice(e.target.value)} required>
+                  <option value="">Select a type…</option>
+                  {docTypeSuggestions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                  <option value={OTHER_DOC_TYPE}>Other (type your own)</option>
+                </Select>
               </Field>
+              {docTypeChoice === OTHER_DOC_TYPE && (
+                <Field label="Custom document type" required>
+                  <Input
+                    value={docTypeOther}
+                    onChange={(e) => setDocTypeOther(e.target.value)}
+                    placeholder="Pleading, Evidence…"
+                    required
+                  />
+                </Field>
+              )}
             </div>
           </>
         )}

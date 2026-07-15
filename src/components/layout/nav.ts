@@ -1,11 +1,9 @@
 import {
   Briefcase,
-  Building2,
   ClipboardCheck,
   FileText,
   LayoutDashboard,
   ScrollText,
-  ShieldCheck,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -55,15 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Administration',
     items: [
-      { to: '/admin/branches', label: 'Branches', icon: Building2, mdOnly: true },
-      {
-        to: '/admin/branch-admins',
-        label: 'Branch Admins',
-        icon: ShieldCheck,
-        mdOnly: true,
-      },
       { to: '/admin/users', label: 'Users', icon: Users, adminOnly: true },
-      { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, adminOnly: true },
       { to: '/audit', label: 'Audit log', icon: ScrollText, adminOnly: true },
     ],
   },

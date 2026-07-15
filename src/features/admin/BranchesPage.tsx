@@ -78,15 +78,20 @@ export default function BranchesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {branches.map((branch) => (
-            <Card key={branch.id} className={branch.is_frozen ? 'urgency-strip' : undefined}
-              style={branch.is_frozen ? { borderLeftColor: 'var(--color-urgent)' } : undefined}
+            <Card
+              key={branch.id}
+              style={
+                branch.is_frozen
+                  ? { borderColor: 'var(--color-danger)', backgroundColor: 'var(--color-danger-soft)' }
+                  : undefined
+              }
             >
               <CardHeader
                 title={branch.name}
                 description={
                   branch.is_frozen ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-danger">
-                      <span className="dot bg-urgent" aria-hidden /> frozen — read-only
+                      <span className="dot bg-danger" aria-hidden /> frozen — read-only
                     </span>
                   ) : undefined
                 }

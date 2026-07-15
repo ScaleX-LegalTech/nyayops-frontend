@@ -1,5 +1,6 @@
 import type {
   Case,
+  CaseCnrLinkRequest,
   CaseCreateRequest,
   CaseDetailsRequest,
   CaseDetailsResponse,
@@ -42,6 +43,13 @@ export function addCaseDetails(
   payload: CaseDetailsRequest,
 ): Promise<CaseDetailsResponse> {
   return patch<CaseDetailsResponse>(`/cases/${caseId}/details`, payload)
+}
+
+export function linkCaseCnr(
+  caseId: string,
+  payload: CaseCnrLinkRequest,
+): Promise<CaseDetailsResponse> {
+  return post<CaseDetailsResponse>(`/cases/${caseId}/link-cnr`, payload)
 }
 
 export function refreshCaseCnr(caseId: string): Promise<CaseDetailsResponse> {

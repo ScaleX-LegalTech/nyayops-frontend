@@ -33,6 +33,31 @@ export const CASE_LIFECYCLE_STAGES = [
 
 export type CaseLifecycleStage = (typeof CASE_LIFECYCLE_STAGES)[number]
 
+/** Mirrors LIFECYCLE_TRANSITIONS in domain/case_fsm.py - the backend is the source of
+ * truth for enforcement, this just avoids a round-trip 400 for obviously-invalid
+ * clicks in CaseLifecycleTracker. */
+export const LIFECYCLE_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
+  collection: ['scrutiny'],
+  scrutiny: ['collection', 'filed'],
+  filed: ['cnr_linked', 'research_draft'],
+  cnr_linked: ['research_draft'],
+  research_draft: ['hearing'],
+  hearing: ['research_draft', 'disposed'],
+  disposed: ['research_draft'],
+}
+
+/** Curated suggestions per stage for the document-upload form - not a closed set, the
+ * upload form always keeps a free-text "Other" option alongside these. */
+export const DOC_TYPE_OPTIONS: Record<CaseLifecycleStage, { value: string; label: string }[]> = {
+  collection: [{ value: 'collection_document', label: 'Collection document' }],
+  scrutiny: [{ value: 'scrutiny_report', label: 'Scrutiny report' }],
+  filed: [{ value: 'filing_document', label: 'Filing document' }],
+  cnr_linked: [{ value: 'filing_document', label: 'Filing document' }],
+  research_draft: [{ value: 'research_draft_document', label: 'Research / draft document' }],
+  hearing: [{ value: 'hearing_report', label: 'Hearing report' }],
+  disposed: [{ value: 'final_order', label: 'Final order' }],
+}
+
 export interface CaseCommentAttachment {
   id: string
   title: string
@@ -72,6 +97,7 @@ export interface Case {
   id: string
   tenant_id: string
   branch_id: string | null
+  case_code: string
   title: string
   case_type: string | null
   client_name: string
@@ -88,6 +114,7 @@ export interface Case {
   case_stage: CaseStage | null
   lifecycle_stage: CaseLifecycleStage | null
   assigned_user_ids: string[]
+  assignee_names: string[]
   created_by: string
   reviewed_by: string | null
   reviewed_at: string | null
@@ -110,14 +137,17 @@ export interface CaseCreateRequest {
 }
 
 export interface CaseDetailsRequest {
-  mode: 'cnr' | 'manual'
-  cnr?: string | null
+  case_type: string
+  court_jurisdiction: string
+  region: string
   court_type?: string | null
-  case_type?: string | null
-  court_jurisdiction?: string | null
-  region?: string | null
   filing_date?: string | null
   hearing_date?: string | null
+}
+
+export interface CaseCnrLinkRequest {
+  cnr: string
+  court_type?: string | null
 }
 
 export interface CaseDetailsResponse {
@@ -408,6 +438,7 @@ export interface Permission {
   action: string
   scope: string
   condition: Record<string, unknown> | null
+  description: string | null
 }
 
 export interface Role {
@@ -446,6 +477,7 @@ export interface Notification {
   channel: string
   subject: string
   payload: Record<string, unknown>
+  event_type: string | null
   read_at: string | null
   created_at: string
 }

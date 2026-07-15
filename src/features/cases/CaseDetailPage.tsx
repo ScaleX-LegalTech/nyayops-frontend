@@ -9,7 +9,9 @@ import {
   Eye,
   FilePlus2,
   FileSearch,
+  FileSignature,
   FileText,
+  Link2,
   MessageSquarePlus,
   Pencil,
   Plus,
@@ -42,6 +44,8 @@ import { ReassignDialog } from './ReassignDialog'
 import { UploadDialog } from '@/features/documents/UploadDialog'
 import { SCAN_TONE } from '@/features/documents/DocumentsPage'
 import { CaseLifecycleTracker } from './CaseLifecycleTracker'
+import { LinkCnrDialog } from './LinkCnrDialog'
+import { FileSuitDialog } from './FileSuitDialog'
 import { cn } from '@/lib/cn'
 
 const REVIEWER_ONLY_STATUSES: CaseStatus[] = ['under_review', 'approved', 'rejected', 'closed']
@@ -72,6 +76,8 @@ export default function CaseDetailPage() {
   const [nextStatus, setNextStatus] = useState<CaseStatus | ''>('')
   const [statusComment, setStatusComment] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [linkingCnr, setLinkingCnr] = useState(false)
+  const [filingSuit, setFilingSuit] = useState(false)
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
   const [versionFor, setVersionFor] = useState<string | null>(null)
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
@@ -139,6 +145,13 @@ export default function CaseDetailPage() {
     (s) => s !== 'reassigned' && (canReview || !REVIEWER_ONLY_STATUSES.includes(s)),
   )
   const canReassign = hasPermission('cases', 'assign') && caseTransitions.includes('reassigned')
+  const canLinkCnr = hasPermission('cases', 'update') && c.source !== 'cnr'
+  const cnrStageReady =
+    c.lifecycle_stage != null && c.lifecycle_stage !== 'collection' && c.lifecycle_stage !== 'scrutiny'
+  // Filing details are only collectible once, while the case is still draft (add_case_details
+  // is a one-time action) - after that the button just disappears, "File suit" done.
+  const canFileSuit = hasPermission('cases', 'update') && c.status === 'draft'
+  const fileSuitReady = c.lifecycle_stage === 'scrutiny'
 
   const fileDocuments = documents?.filter(
     (d) => d.doc_type !== 'comment_attachment' && d.doc_type !== 'final_order_attachment',
@@ -157,6 +170,8 @@ export default function CaseDetailPage() {
         title={c.title}
         description={
           <span className="flex flex-wrap items-center gap-2">
+            <span className="type-mono text-ink-faint">{c.case_code}</span>
+            <span className="text-ink-faint">·</span>
             <StatusBadge status={c.status} />
             <PriorityBadge priority={c.priority} />
             <span className="text-ink-faint">·</span>
@@ -165,9 +180,29 @@ export default function CaseDetailPage() {
         }
         actions={
           <>
+            {canFileSuit && (
+              <Button
+                variant="secondary"
+                disabled={!fileSuitReady}
+                title={!fileSuitReady ? 'Complete scrutiny before filing the suit' : undefined}
+                onClick={() => setFilingSuit(true)}
+              >
+                <FileSignature className="size-4" /> File suit
+              </Button>
+            )}
             {c.status !== 'draft' && (
               <Button variant="secondary" onClick={() => navigate(`/cases/${caseId}/view-case-details`)}>
                 <FileSearch className="size-4" /> View case details
+              </Button>
+            )}
+            {canLinkCnr && (
+              <Button
+                variant="secondary"
+                disabled={!cnrStageReady}
+                title={!cnrStageReady ? 'File the suit before linking a CNR' : undefined}
+                onClick={() => setLinkingCnr(true)}
+              >
+                <Link2 className="size-4" /> Link CNR
               </Button>
             )}
             {hasPermission('cases', 'assign') && c.status !== 'closed' && (
@@ -207,6 +242,7 @@ export default function CaseDetailPage() {
                 <Detail label="Case type" value={c.case_type} />
                 <Detail label="Court" value={courtLabel(c.court_jurisdiction)} />
                 <Detail label="Region" value={c.region} />
+                {c.cnr && <Detail label="CNR" value={c.cnr} />}
                 <Detail label="Filing date" value={formatDate(c.filing_date)} />
                 <Detail label="Hearing date" value={formatDate(c.hearing_date)} />
                 <Detail label="Created" value={formatDate(c.created_at)} />
@@ -554,6 +590,10 @@ export default function CaseDetailPage() {
         onClose={() => setPreviewTarget(null)}
         target={previewTarget}
       />
+
+      <LinkCnrDialog open={linkingCnr} onClose={() => setLinkingCnr(false)} caseId={caseId} />
+
+      <FileSuitDialog open={filingSuit} onClose={() => setFilingSuit(false)} caseId={caseId} />
 
       <Dialog
         open={confirmDelete}

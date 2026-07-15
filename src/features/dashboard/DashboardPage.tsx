@@ -224,8 +224,7 @@ export default function DashboardPage() {
                   <Link
                     key={c.id}
                     to={`/cases/${c.id}`}
-                    className="urgency-strip flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
-                    style={{ borderLeftColor: 'var(--color-urgent)' }}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
                   >
                     <EntityAvatar label={c.title} size="sm" />
                     <div className="min-w-0 flex-1">

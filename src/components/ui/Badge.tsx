@@ -1,11 +1,43 @@
 import type { ReactNode } from 'react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  Clock,
+  RotateCcw,
+  Send,
+  UserCheck,
+} from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { CaseStatus } from '@/types'
 import { humanize } from '@/lib/format'
 
 export type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
 
-/** Text/dot color per tone — used by StatusBadge/PriorityBadge's dot+label pattern. */
+/** Capsule fill/text per tone — every status and priority renders as one of these,
+ * never a plain gray chip. Icon carries meaning too, so color is never the only signal. */
+const TONE_CAPSULE: Record<Tone, string> = {
+  neutral: 'bg-surface-muted text-ink-muted',
+  brand: 'bg-brand-soft text-brand-strong',
+  success: 'bg-success-soft text-success-strong',
+  warning: 'bg-warning-soft text-warning-strong',
+  danger: 'bg-danger-soft text-danger-strong',
+  info: 'bg-info-soft text-info-strong',
+  accent: 'bg-brand-soft text-brand-strong',
+}
+
+const TONE_ICON: Record<Tone, typeof AlertTriangle> = {
+  neutral: Circle,
+  brand: Circle,
+  success: CheckCircle2,
+  warning: Clock,
+  danger: AlertTriangle,
+  info: UserCheck,
+  accent: Send,
+}
+
+/** Text/dot color per tone — still used by the transition-picker choice pills in
+ * CaseDetailPage, which render their own control instead of this capsule. */
 export const DOT_TONE: Record<Tone, string> = {
   neutral: 'bg-ink-faint',
   brand: 'bg-brand',
@@ -16,9 +48,6 @@ export const DOT_TONE: Record<Tone, string> = {
   accent: 'bg-accent',
 }
 
-/** Semi-filled tone classes for interactive controls (e.g. transition picker buttons)
- * where a passive dot+label doesn't apply — this system's badges never use fill, but
- * a clickable choice pill is a control, not a status label. */
 export const TONES: Record<Tone, string> = {
   neutral: 'bg-surface-muted text-ink-muted border-border',
   brand: 'bg-brand-soft text-brand-strong border-brand/30',
@@ -38,7 +67,7 @@ interface BadgeProps {
 
 /** Generic metadata tag (chip): bordered box, no color fill — for role names, counts,
  * scan status, version numbers. For a case/review STATUS use StatusBadge/PriorityBadge
- * instead — this system's one status pattern is a dot + label, never a filled pill. */
+ * instead — those render as colored capsules, this stays neutral. */
 export function Badge({ tone = 'neutral', children, className, dot }: BadgeProps) {
   return (
     <span
@@ -48,6 +77,23 @@ export function Badge({ tone = 'neutral', children, className, dot }: BadgeProps
       )}
     >
       {dot && <span className={cn('dot', DOT_TONE[tone])} aria-hidden />}
+      {children}
+    </span>
+  )
+}
+
+/** Icon-anchored colored capsule — the one status pattern in this system. Every tone
+ * gets a fill + icon so status/priority reads at a glance in a dense list, not just
+ * the critical ones. */
+function Capsule({ tone, icon: Icon, children }: { tone: Tone; icon: typeof AlertTriangle; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap',
+        TONE_CAPSULE[tone],
+      )}
+    >
+      <Icon className="size-3.5 shrink-0" aria-hidden />
       {children}
     </span>
   )
@@ -66,16 +112,17 @@ export const STATUS_TONE: Record<CaseStatus, Tone> = {
   closed: 'neutral',
 }
 
-/** Status — dot + lowercase label, never a filled badge. The single most load-bearing
- * restraint in this system: with urgency/payment/role/source status all potentially
- * live on one screen, colored pill badges compound into visual noise fast. */
+const STATUS_ICON: Partial<Record<CaseStatus, typeof AlertTriangle>> = {
+  reassigned: RotateCcw,
+}
+
 export function StatusBadge({ status }: { status: CaseStatus }) {
   const tone = STATUS_TONE[status]
+  const Icon = STATUS_ICON[status] ?? TONE_ICON[tone]
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted whitespace-nowrap">
-      <span className={cn('dot', DOT_TONE[tone])} aria-hidden />
+    <Capsule tone={tone} icon={Icon}>
       {humanize(status)}
-    </span>
+    </Capsule>
   )
 }
 
@@ -89,9 +136,8 @@ const PRIORITY_TONE: Record<string, Tone> = {
 export function PriorityBadge({ priority }: { priority: string }) {
   const tone = PRIORITY_TONE[priority] ?? 'neutral'
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted whitespace-nowrap">
-      <span className={cn('dot', DOT_TONE[tone])} aria-hidden />
+    <Capsule tone={tone} icon={TONE_ICON[tone]}>
       {humanize(priority)}
-    </span>
+    </Capsule>
   )
 }

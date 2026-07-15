@@ -1,7 +1,7 @@
 import { RotateCcw } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Case, CaseLifecycleStage } from '@/types'
-import { CASE_LIFECYCLE_STAGES } from '@/types'
+import { CASE_LIFECYCLE_STAGES, LIFECYCLE_TRANSITIONS } from '@/types'
 import { cn } from '@/lib/cn'
 import { Card, CardBody } from '@/components/ui/Card'
 import { updateCaseLifecycleStage } from '@/lib/api/cases'
@@ -32,7 +32,9 @@ export function CaseLifecycleTracker({ c }: { c: Case }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
-  const current = CASE_LIFECYCLE_STAGES.indexOf(c.lifecycle_stage ?? 'collection')
+  const currentStage = c.lifecycle_stage ?? 'collection'
+  const current = CASE_LIFECYCLE_STAGES.indexOf(currentStage)
+  const reachable = LIFECYCLE_TRANSITIONS[currentStage]
 
   const mutation = useMutationWithToast({
     mutationFn: (stage: CaseLifecycleStage) => updateCaseLifecycleStage(c.id, stage),
@@ -53,15 +55,17 @@ export function CaseLifecycleTracker({ c }: { c: Case }) {
           {CASE_LIFECYCLE_STAGES.map((stage, i) => {
             const done = i < current
             const active = i === current
+            const canClick = canEdit && !mutation.isPending && reachable.includes(stage)
             return (
               <div key={stage} className="flex flex-1 items-center last:flex-none">
                 <button
                   type="button"
-                  disabled={!canEdit || mutation.isPending}
+                  disabled={!canClick}
+                  title={!canClick && canEdit && !active ? 'Not reachable from the current stage' : undefined}
                   onClick={() => mutation.mutate(stage)}
                   className={cn(
                     'flex shrink-0 flex-col items-center gap-1.5',
-                    canEdit && 'cursor-pointer',
+                    canClick && 'cursor-pointer',
                   )}
                 >
                   <span
