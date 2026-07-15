@@ -1,8 +1,12 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Loader2, RefreshCw, X } from 'lucide-react'
 import {
+  addCaseHistory,
+  addCaseParty,
+  deleteCaseHistory,
+  deleteCaseParty,
   downloadCnrOrder,
   getCaseFullDetails,
   getCnrBusinessDetail,
@@ -17,10 +21,13 @@ import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Input, Select } from '@/components/ui/Field'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
 import { ManualDocumentDialog } from './ManualDocumentDialog'
 import { cn } from '@/lib/cn'
+import type { CaseHistoryEntry, CaseParty } from '@/types'
 
 function cellValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
@@ -406,6 +413,188 @@ function RawSection({
   )
 }
 
+/** Manual cases have nothing to show here until a party/hearing is added by hand - this
+ * page (not the creation wizard) is where that happens, any time after filing, since
+ * neither is known until the suit actually exists. */
+function PartiesSection({ caseId, parties }: { caseId: string; parties: CaseParty[] }) {
+  const queryClient = useQueryClient()
+  const [role, setRole] = useState('petitioner')
+  const [name, setName] = useState('')
+  const [advocate, setAdvocate] = useState('')
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: qk.caseFullDetails(caseId) })
+    queryClient.invalidateQueries({ queryKey: qk.caseDetail(caseId) })
+  }
+
+  const addMutation = useMutationWithToast({
+    mutationFn: () => addCaseParty(caseId, { role, name, advocate_name: advocate || null }),
+    onSuccess: () => {
+      invalidate()
+      setName('')
+      setAdvocate('')
+    },
+    errorFallback: 'Could not add party.',
+  })
+
+  const deleteMutation = useMutationWithToast({
+    mutationFn: (partyId: string) => deleteCaseParty(caseId, partyId),
+    onSuccess: invalidate,
+    errorFallback: 'Could not remove party.',
+  })
+
+  return (
+    <SectionCard title={`Parties${parties.length ? ` (${parties.length})` : ''}`}>
+      {parties.length === 0 ? (
+        <p className="mb-3 text-sm text-ink-muted">None added yet.</p>
+      ) : (
+        <ul className="mb-3 space-y-1.5">
+          {parties.map((p) => (
+            <li key={p.id} className="flex items-center justify-between text-sm text-ink-muted">
+              <span>
+                <span className="font-medium text-ink">{p.name}</span> — {p.role}
+                {p.advocate_name && ` (adv. ${p.advocate_name})`}
+              </span>
+              <button
+                type="button"
+                aria-label={`Remove ${p.name}`}
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(p.id)}
+                className="text-ink-faint hover:text-danger"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grid gap-2 sm:grid-cols-[1fr_1.5fr_1.5fr_auto]">
+        <Select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="petitioner">Petitioner</option>
+          <option value="respondent">Respondent</option>
+          <option value="objector">Objector</option>
+          <option value="other">Other</option>
+        </Select>
+        <Input placeholder="Party name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          placeholder="Advocate (optional)"
+          value={advocate}
+          onChange={(e) => setAdvocate(e.target.value)}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={!name.trim()}
+          loading={addMutation.isPending}
+          onClick={() => addMutation.mutate()}
+        >
+          Add
+        </Button>
+      </div>
+    </SectionCard>
+  )
+}
+
+function ManualHistorySection({ caseId, history }: { caseId: string; history: CaseHistoryEntry[] }) {
+  const queryClient = useQueryClient()
+  const [purpose, setPurpose] = useState('')
+  const [date, setDate] = useState('')
+  const [nextDate, setNextDate] = useState('')
+  const [judge, setJudge] = useState('')
+  const [disposal, setDisposal] = useState(false)
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: qk.caseFullDetails(caseId) })
+    queryClient.invalidateQueries({ queryKey: qk.caseDetail(caseId) })
+  }
+
+  const addMutation = useMutationWithToast({
+    mutationFn: () =>
+      addCaseHistory(caseId, {
+        purpose: purpose || null,
+        hearing_date: date || null,
+        next_hearing_date: nextDate || null,
+        judge: judge || null,
+        is_disposal: disposal,
+      }),
+    onSuccess: () => {
+      invalidate()
+      setPurpose('')
+      setDate('')
+      setNextDate('')
+      setJudge('')
+      setDisposal(false)
+    },
+    errorFallback: 'Could not add hearing.',
+  })
+
+  const deleteMutation = useMutationWithToast({
+    mutationFn: (historyId: string) => deleteCaseHistory(caseId, historyId),
+    onSuccess: invalidate,
+    errorFallback: 'Could not remove hearing entry.',
+  })
+
+  return (
+    <SectionCard title={`Hearing history${history.length ? ` (${history.length})` : ''}`}>
+      {history.length === 0 ? (
+        <p className="mb-3 text-sm text-ink-muted">None added yet.</p>
+      ) : (
+        <ul className="mb-3 space-y-1.5">
+          {history.map((h) => (
+            <li key={h.id} className="flex items-center justify-between text-sm text-ink-muted">
+              <span>
+                {formatDate(h.hearing_date)} — {h.purpose || 'Hearing'}
+                {h.judge && ` · ${h.judge}`}
+                {h.next_hearing_date && ` (next: ${formatDate(h.next_hearing_date)})`}
+                {h.is_disposal && (
+                  <>
+                    {' '}
+                    <Badge tone="neutral">disposed</Badge>
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                aria-label="Remove hearing entry"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(h.id)}
+                className="text-ink-faint hover:text-danger"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input
+          placeholder="Purpose (e.g. Arguments)"
+          value={purpose}
+          onChange={(e) => setPurpose(e.target.value)}
+        />
+        <Input placeholder="Judge (optional)" value={judge} onChange={(e) => setJudge(e.target.value)} />
+        <DatePicker value={date} onChange={setDate} placeholder="Hearing date" />
+        <DatePicker value={nextDate} onChange={setNextDate} placeholder="Next date" />
+        <label className="flex items-center gap-2 text-sm text-ink-muted">
+          <input type="checkbox" checked={disposal} onChange={(e) => setDisposal(e.target.checked)} />
+          Case disposed at this hearing
+        </label>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="mt-2"
+        loading={addMutation.isPending}
+        onClick={() => addMutation.mutate()}
+      >
+        Add hearing entry
+      </Button>
+    </SectionCard>
+  )
+}
+
 export default function CaseFullDetailsPage() {
   const { caseId = '' } = useParams()
   const queryClient = useQueryClient()
@@ -544,42 +733,9 @@ export default function CaseFullDetailsPage() {
             </dl>
           </div>
 
-          <SectionCard title={`Parties${data.manual.parties.length ? ` (${data.manual.parties.length})` : ''}`}>
-            {data.manual.parties.length === 0 ? (
-              <p className="text-sm text-ink-muted">None added yet.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {data.manual.parties.map((p) => (
-                  <li key={p.id} className="text-sm text-ink-muted">
-                    <span className="font-medium text-ink">{p.name}</span> — {p.role}
-                    {p.advocate_name && ` (adv. ${p.advocate_name})`}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionCard>
+          <PartiesSection caseId={caseId} parties={data.manual.parties} />
 
-          <SectionCard title={`Hearing history${data.manual.history.length ? ` (${data.manual.history.length})` : ''}`}>
-            {data.manual.history.length === 0 ? (
-              <p className="text-sm text-ink-muted">None added yet.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {data.manual.history.map((h) => (
-                  <li key={h.id} className="text-sm text-ink-muted">
-                    {formatDate(h.hearing_date)} — {h.purpose || 'Hearing'}
-                    {h.judge && ` · ${h.judge}`}
-                    {h.next_hearing_date && ` (next: ${formatDate(h.next_hearing_date)})`}
-                    {h.is_disposal && (
-                      <>
-                        {' '}
-                        <Badge tone="neutral">disposed</Badge>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionCard>
+          <ManualHistorySection caseId={caseId} history={data.manual.history} />
 
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-ink">

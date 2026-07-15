@@ -35,7 +35,7 @@ export function Tabs({ tabs, value, onChange, className }: TabsProps) {
             {tab.count !== undefined && (
               <span
                 className={cn(
-                  'rounded-full px-1.5 py-0.5 text-xs tabular',
+                  'rounded-control px-1.5 py-0.5 text-xs tabular',
                   active ? 'bg-brand-soft text-brand-strong' : 'bg-surface-muted text-ink-muted',
                 )}
               >

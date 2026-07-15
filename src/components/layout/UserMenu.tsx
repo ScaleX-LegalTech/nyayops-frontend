@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
-import { initials } from '@/lib/format'
+import { PersonAvatar } from '@/components/ui/Avatar'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -26,9 +26,7 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2.5 rounded-control py-1 pl-1 pr-2 hover:bg-surface-muted"
       >
-        <span className="grid size-8 place-items-center rounded-full bg-brand text-sm font-semibold text-white">
-          {initials(email)}
-        </span>
+        <PersonAvatar label={email} />
         <span className="hidden max-w-40 truncate text-sm font-medium text-ink sm:block">
           {email}
         </span>

@@ -1,18 +1,18 @@
 /**
  * Recharts reads `fill`/`stroke` as plain SVG attributes, which can't resolve
  * CSS custom properties — so these mirror the `@theme` tokens in index.css as
- * literal OKLCH strings. Keep in sync if the palette changes.
+ * literal hex strings. Keep in sync if the palette changes.
  */
 export const STATUS_COLORS = [
-  'oklch(0.48 0.15 235)', // brand
-  'oklch(0.58 0.11 215)', // info
-  'oklch(0.78 0.13 95)', // accent
-  'oklch(0.7 0.13 50)', // warning
-  'oklch(0.55 0.11 150)', // success
-  'oklch(0.55 0.17 27)', // danger
-  'oklch(0.55 0.03 235)', // neutral
+  '#8C6A2E', // brand / accent (bronze)
+  '#3C4A52', // info / normal
+  '#8C6A2E', // accent
+  '#8C6A2E', // warning / soon (reuses accent bronze)
+  '#3F5C43', // success
+  '#7A3B32', // danger / urgent
+  '#6E6A61', // neutral
 ]
 
-export const CHART_AXIS_TICK = 'oklch(0.5 0.018 235)'
-export const CHART_TOOLTIP_CURSOR = 'oklch(0.97 0.005 235)'
-export const CHART_BAR_FILL = 'oklch(0.48 0.15 235)'
+export const CHART_AXIS_TICK = '#6E6A61'
+export const CHART_TOOLTIP_CURSOR = '#F8F7F3'
+export const CHART_BAR_FILL = '#8C6A2E'

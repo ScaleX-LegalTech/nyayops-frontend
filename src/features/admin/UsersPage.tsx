@@ -23,7 +23,6 @@ import {
   updateUser,
 } from '@/lib/api/admin'
 import { qk } from '@/lib/queryKeys'
-import { initials } from '@/lib/format'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/auth/AuthContext'
@@ -32,6 +31,7 @@ import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Field, Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
+import { PersonAvatar } from '@/components/ui/Avatar'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
@@ -104,9 +104,7 @@ export default function UsersPage() {
                 <Tr key={u.id} className="hover:bg-surface-muted">
                   <Td>
                     <div className="flex items-center gap-2.5">
-                      <span className="grid size-8 place-items-center rounded-full bg-shell text-xs font-semibold text-white">
-                        {initials(u.full_name)}
-                      </span>
+                      <PersonAvatar label={u.full_name} size="sm" />
                       <span className="font-medium text-ink">{u.full_name}</span>
                     </div>
                   </Td>

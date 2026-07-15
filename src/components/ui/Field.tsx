@@ -90,7 +90,7 @@ export function Select({
           <div
             ref={panelRef}
             role="listbox"
-            className="scrollbar-thin fixed max-h-60 overflow-y-auto whitespace-nowrap rounded-xl border border-border/60 bg-surface/85 p-1 text-sm shadow-pop backdrop-blur-md animate-rise"
+            className="scrollbar-thin fixed max-h-60 overflow-y-auto whitespace-nowrap rounded-control border border-border bg-surface p-1 text-sm shadow-pop animate-rise"
             style={{
               top: pos.top,
               left: pos.left,
@@ -107,7 +107,7 @@ export function Select({
                 disabled={o.disabled}
                 onClick={() => pick(o.value)}
                 className={cn(
-                  'block w-full rounded-lg px-2.5 py-1.5 text-left font-normal',
+                  'block w-full rounded-control px-2.5 py-1.5 text-left font-normal',
                   o.value === currentValue ? 'bg-brand text-white' : 'text-ink hover:bg-surface-muted',
                   o.disabled && 'opacity-40',
                 )}

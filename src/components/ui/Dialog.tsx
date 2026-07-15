@@ -88,7 +88,7 @@ export function Dialog({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-shell/40 backdrop-blur-[2px] animate-rise"
+        className="absolute inset-0 bg-black/40 animate-rise"
         onClick={onClose}
         aria-hidden
       />
@@ -96,7 +96,7 @@ export function Dialog({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full rounded-t-card bg-surface shadow-pop outline-none sm:rounded-card animate-rise',
+          'relative w-full rounded-t-card border border-border bg-surface outline-none sm:rounded-card animate-rise',
           SIZES[size],
         )}
       >

@@ -1,10 +1,12 @@
 import type {
   Case,
+  CaseCnrLinkRequest,
   CaseCreateRequest,
   CaseDetailsRequest,
   CaseDetailsResponse,
   CaseFullDetailsResponse,
   CaseHistoryCreate,
+  CaseLifecycleStage,
   CasePartyCreate,
   CasePerson,
   CaseSearchFilters,
@@ -41,6 +43,13 @@ export function addCaseDetails(
   payload: CaseDetailsRequest,
 ): Promise<CaseDetailsResponse> {
   return patch<CaseDetailsResponse>(`/cases/${caseId}/details`, payload)
+}
+
+export function linkCaseCnr(
+  caseId: string,
+  payload: CaseCnrLinkRequest,
+): Promise<CaseDetailsResponse> {
+  return post<CaseDetailsResponse>(`/cases/${caseId}/link-cnr`, payload)
 }
 
 export function refreshCaseCnr(caseId: string): Promise<CaseDetailsResponse> {
@@ -128,6 +137,17 @@ export function updateCaseStatus(
   comment?: string,
 ): Promise<Case> {
   return patch<Case>(`/cases/${caseId}/status`, { status, comment })
+}
+
+export function updateCaseLifecycleStage(
+  caseId: string,
+  lifecycleStage: CaseLifecycleStage,
+  comment?: string,
+): Promise<Case> {
+  return patch<Case>(`/cases/${caseId}/lifecycle-stage`, {
+    lifecycle_stage: lifecycleStage,
+    comment,
+  })
 }
 
 export function bulkAssignCases(caseIds: string[], assignedUserIds: string[]): Promise<Case[]> {

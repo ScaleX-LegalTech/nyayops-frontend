@@ -38,15 +38,28 @@ export const router = createBrowserRouter([
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },
-          { path: 'admin/roles', ...page(() => import('@/features/admin/RolesPage')) },
+          { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },
+          { path: 'notifications', ...page(() => import('@/features/notifications/NotificationsPage')) },
           {
-            element: <RequireManagingDirector />,
+            path: 'settings',
+            ...page(() => import('@/features/settings/SettingsPage')),
             children: [
-              { path: 'admin/branches', ...page(() => import('@/features/admin/BranchesPage')) },
+              { index: true, ...page(() => import('@/features/settings/SettingsOverviewPage')) },
+              { path: 'roles', ...page(() => import('@/features/admin/RolesPage')) },
+              { path: 'roles/new', ...page(() => import('@/features/admin/RoleEditPage')) },
+              { path: 'roles/:roleId', ...page(() => import('@/features/admin/RoleEditPage')) },
+              {
+                element: <RequireManagingDirector />,
+                children: [
+                  { path: 'branches', ...page(() => import('@/features/admin/BranchesPage')) },
+                  {
+                    path: 'branch-admins',
+                    ...page(() => import('@/features/admin/BranchAdminsPage')),
+                  },
+                ],
+              },
             ],
           },
-          { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },
-          { path: 'settings', ...page(() => import('@/features/settings/SettingsPage')) },
         ],
       },
     ],

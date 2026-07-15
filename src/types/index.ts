@@ -21,6 +21,81 @@ export type CaseSource = 'manual' | 'cnr'
 
 export type CaseStage = 'filed' | 'pending' | 'reserved' | 'disposed'
 
+export const CASE_LIFECYCLE_STAGES = [
+  'collection',
+  'scrutiny',
+  'filed',
+  'cnr_linked',
+  'research_draft',
+  'hearing',
+  'disposed',
+] as const
+
+export type CaseLifecycleStage = (typeof CASE_LIFECYCLE_STAGES)[number]
+
+/** Groups the 7 stages into the 4 parts the case-detail lifecycle tracker renders -
+ * mirrors how the firm actually thinks about the SOP (Collection & Scrutiny happen
+ * together, Suit & CNR happen together, ...). Purely a display grouping - the backend
+ * has no notion of "parts", only the 7 CaseLifecycleStage values. */
+export const CASE_LIFECYCLE_PARTS: { name: string; stages: CaseLifecycleStage[] }[] = [
+  { name: 'Collection & Scrutiny', stages: ['collection', 'scrutiny'] },
+  { name: 'Suit & CNR', stages: ['filed', 'cnr_linked'] },
+  { name: 'Research, Draft & Hearing', stages: ['research_draft', 'hearing'] },
+  { name: 'Disposed', stages: ['disposed'] },
+]
+
+/** Mirrors FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS in domain/case_fsm.py - the backend
+ * is the source of truth for enforcement, this just avoids a round-trip 400 for
+ * obviously-invalid clicks in CaseLifecycleTracker. Forward moves may be gated (see
+ * GATED_LIFECYCLE_STAGES/REQUIRED_DOC_TYPE_FOR below); backward moves never are. */
+export const FORWARD_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
+  collection: ['scrutiny'],
+  scrutiny: ['filed'],
+  filed: ['cnr_linked', 'research_draft'],
+  cnr_linked: ['research_draft'],
+  research_draft: ['hearing'],
+  hearing: ['disposed'],
+  disposed: [],
+}
+
+export const BACKWARD_TRANSITIONS: Record<CaseLifecycleStage, CaseLifecycleStage[]> = {
+  collection: [],
+  scrutiny: ['collection'],
+  filed: ['scrutiny'],
+  cnr_linked: ['filed'],
+  research_draft: ['filed'],
+  hearing: ['research_draft'],
+  disposed: ['hearing', 'research_draft'],
+}
+
+/** filed/cnr_linked are only ever entered via the File suit / Link CNR dialogs (they
+ * collect data a bare stage click can't) - mirrors GATED_STAGES in domain/case_fsm.py. */
+export const GATED_LIFECYCLE_STAGES: CaseLifecycleStage[] = ['filed', 'cnr_linked']
+
+/** Mirrors REQUIRED_DOC_TYPE_FOR in domain/case_fsm.py - the one curated document type
+ * that must be on file before leaving each stage going forward. Backward moves are
+ * never gated by this. */
+export const REQUIRED_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
+  collection: 'collection_document',
+  scrutiny: 'scrutiny_report',
+  filed: 'filing_document',
+  cnr_linked: 'filing_document',
+  research_draft: 'research_draft_document',
+  hearing: 'hearing_report',
+}
+
+/** Curated suggestions per stage for the document-upload form - not a closed set, the
+ * upload form always keeps a free-text "Other" option alongside these. */
+export const DOC_TYPE_OPTIONS: Record<CaseLifecycleStage, { value: string; label: string }[]> = {
+  collection: [{ value: 'collection_document', label: 'Collection document' }],
+  scrutiny: [{ value: 'scrutiny_report', label: 'Scrutiny report' }],
+  filed: [{ value: 'filing_document', label: 'Filing document' }],
+  cnr_linked: [{ value: 'filing_document', label: 'Filing document' }],
+  research_draft: [{ value: 'research_draft_document', label: 'Research / draft document' }],
+  hearing: [{ value: 'hearing_report', label: 'Hearing report' }],
+  disposed: [{ value: 'final_order', label: 'Final order' }],
+}
+
 export interface CaseCommentAttachment {
   id: string
   title: string
@@ -56,10 +131,16 @@ export interface CaseHistoryEntry {
   created_at: string
 }
 
+export interface CaseLifecycleHistoryEntry {
+  stage: CaseLifecycleStage
+  entered_at: string
+}
+
 export interface Case {
   id: string
   tenant_id: string
   branch_id: string | null
+  case_code: string
   title: string
   case_type: string | null
   client_name: string
@@ -74,7 +155,9 @@ export interface Case {
   cnr: string | null
   court_type: string | null
   case_stage: CaseStage | null
+  lifecycle_stage: CaseLifecycleStage | null
   assigned_user_ids: string[]
+  assignee_names: string[]
   created_by: string
   reviewed_by: string | null
   reviewed_at: string | null
@@ -85,6 +168,7 @@ export interface Case {
   comments: CaseComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
+  lifecycle_history: CaseLifecycleHistoryEntry[]
   created_at: string
 }
 
@@ -97,14 +181,17 @@ export interface CaseCreateRequest {
 }
 
 export interface CaseDetailsRequest {
-  mode: 'cnr' | 'manual'
-  cnr?: string | null
+  case_type: string
+  court_jurisdiction: string
+  region: string
   court_type?: string | null
-  case_type?: string | null
-  court_jurisdiction?: string | null
-  region?: string | null
   filing_date?: string | null
   hearing_date?: string | null
+}
+
+export interface CaseCnrLinkRequest {
+  cnr: string
+  court_type?: string | null
 }
 
 export interface CaseDetailsResponse {
@@ -358,7 +445,36 @@ export interface Branch {
   id: string
   tenant_id: string
   name: string
+  is_frozen: boolean
   created_at: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  is_frozen: boolean
+}
+
+export interface BranchAdminPermissions {
+  user_id: string
+  full_name: string
+  email: string
+  branch_id: string | null
+  branch_name: string | null
+  case_reassignment: boolean
+  fee_milestone_setting: boolean
+  precedent_sharing: boolean
+  invite_team_members: boolean
+  document_access_full: boolean
+}
+
+export interface BranchAdminPermissionsUpdate {
+  branch_id: string
+  case_reassignment: boolean
+  fee_milestone_setting: boolean
+  precedent_sharing: boolean
+  invite_team_members: boolean
+  document_access_full: boolean
 }
 
 export interface Permission {
@@ -366,6 +482,7 @@ export interface Permission {
   action: string
   scope: string
   condition: Record<string, unknown> | null
+  description: string | null
 }
 
 export interface Role {
@@ -404,6 +521,7 @@ export interface Notification {
   channel: string
   subject: string
   payload: Record<string, unknown>
+  event_type: string | null
   read_at: string | null
   created_at: string
 }
