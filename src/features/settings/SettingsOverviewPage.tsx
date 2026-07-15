@@ -108,6 +108,56 @@ function ProfileCard() {
   )
 }
 
+function EmailNotificationsCard() {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const { data: profile } = useQuery({ queryKey: qk.myProfile, queryFn: getMe })
+
+  const mutation = useMutationWithToast({
+    mutationFn: (enabled: boolean) => updateMe({ email_notifications_enabled: enabled }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(qk.myProfile, updated)
+      toast(
+        updated.email_notifications_enabled
+          ? 'Email notifications enabled.'
+          : 'Email notifications disabled.',
+        'success',
+      )
+    },
+    errorFallback: 'Could not update email notification preference.',
+  })
+
+  if (!profile) return null
+  const enabled = profile.email_notifications_enabled
+
+  return (
+    <Card>
+      <CardHeader
+        title="Email notifications"
+        description={
+          enabled
+            ? 'You’ll get case reassignments, mentions, and hearing reminders by email too.'
+            : 'Off by default — account emails (OTP, password reset, invitations) always send regardless of this setting.'
+        }
+        action={
+          <span className="grid size-9 place-items-center rounded-full bg-brand-soft text-brand">
+            <Bell className="size-5" />
+          </span>
+        }
+      />
+      <CardBody className="border-t border-border">
+        <Button
+          variant={enabled ? 'secondary' : 'primary'}
+          loading={mutation.isPending}
+          onClick={() => mutation.mutate(!enabled)}
+        >
+          {enabled ? 'Disable email notifications' : 'Enable email notifications'}
+        </Button>
+      </CardBody>
+    </Card>
+  )
+}
+
 function PushNotificationsCard() {
   const { toast } = useToast()
   const [state, setState] = useState<'unsupported' | 'subscribed' | 'unsubscribed' | 'loading'>(
@@ -410,6 +460,7 @@ export default function SettingsOverviewPage() {
         </CardBody>
       </Card>
 
+      <EmailNotificationsCard />
       <PushNotificationsCard />
 
       {isManagingDirector && <OrganizationFreezeCard />}

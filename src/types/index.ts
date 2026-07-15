@@ -424,6 +424,7 @@ export interface User {
   is_branch_admin: boolean
   is_active: boolean
   is_restricted: boolean
+  email_notifications_enabled: boolean
   role_ids: string[]
 }
 
@@ -431,6 +432,7 @@ export interface MyProfileUpdateRequest {
   full_name?: string | null
   phone?: string | null
   bio?: string | null
+  email_notifications_enabled?: boolean
 }
 
 /** Lightweight person record for case-scoped pickers (e.g. @mentions) - only
