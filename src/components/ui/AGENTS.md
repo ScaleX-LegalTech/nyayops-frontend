@@ -25,15 +25,17 @@ only place base visual components should be defined.
 - `PageHeader.tsx` — title + accent underline + description + actions row.
 - `Tabs.tsx` — `role="tablist"` tab bar with optional count badges.
 - `MentionTextarea.tsx` — `@name` autocomplete textarea.
-- `UserMultiSelect.tsx` — checkbox list of tenant users, degrades gracefully without `users:read`.
+- `UserMultiSelect.tsx` — searchable checkbox list of assign candidates for a given `caseIds`
+  prop (backed by `GET /cases/assignable-people`, branch-scoped, not a tenant-wide user dump);
+  selected rows float to the top; degrades gracefully when the fetch isn't permitted.
 - `useFloatingPanel.ts` — non-visual hook pair (`useFloatingPanel`, `useOutsideClose`) shared by
   `Select`, `DatePicker`, `MentionTextarea`.
 
 ## Does NOT own
 
 - Business logic or feature-specific composition — a component here should be usable by any
-  feature domain without knowing what a "case" or "tenant" is (exceptions: `UserMultiSelect`'s
-  `users:read` permission check is the one deliberate, narrowly-scoped exception).
+  feature domain without knowing what a "case" or "tenant" is (exception: `UserMultiSelect`
+  is inherently case-scoped, since who's assignable depends on the case's branch).
 - Data fetching — primitives take props, they don't call `lib/api/*` themselves (again,
   `UserMultiSelect` is the documented exception).
 

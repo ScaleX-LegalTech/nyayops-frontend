@@ -58,7 +58,7 @@ export function ReassignDialog({ open, onClose, caseId, onDone }: ReassignDialog
     >
       <div className="space-y-4">
         <Field label="Assign to" error={selected.length === 0 ? 'Select at least one user.' : undefined}>
-          <UserMultiSelect selected={selected} onChange={setSelected} />
+          <UserMultiSelect caseIds={[caseId]} selected={selected} onChange={setSelected} />
         </Field>
         <Field label="Comment" hint="Optional, recorded with the reassignment.">
           <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} />

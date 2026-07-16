@@ -18,6 +18,8 @@ export const qk = {
   caseTransitions: ['cases', 'transitions'] as const,
   caseActivity: (id: string) => ['cases', 'activity', id] as const,
   casePeople: (id: string) => ['cases', 'people', id] as const,
+  assignablePeople: (caseIds: string[]) =>
+    ['cases', 'assignable-people', [...caseIds].sort()] as const,
   deletedCases: ['cases', 'deleted'] as const,
   reviewQueue: ['review', 'queue'] as const,
   documents: (filters: DocumentSearchFilters = {}) => ['documents', 'list', filters] as const,

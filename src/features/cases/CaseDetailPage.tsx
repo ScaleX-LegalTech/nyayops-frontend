@@ -577,6 +577,7 @@ export default function CaseDetailPage() {
         open={assigning}
         onClose={() => setAssigning(false)}
         caseIds={[caseId]}
+        initialSelected={c.assigned_user_ids}
         onDone={() => {}}
       />
 
