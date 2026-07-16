@@ -170,6 +170,14 @@ export interface Case {
   approved_at: string | null
   rejected_by: string | null
   rejected_at: string | null
+  // Scrutiny-stage approval - distinct from the reviewed/approved/rejected trail
+  // above (the overall case-status review flow). null until someone with
+  // cases:approve_scrutiny acts on it; cleared back to null whenever a fresh
+  // scrutiny_report is uploaded (a corrected document needs a fresh look).
+  scrutiny_review_status: 'approved' | 'rejected' | null
+  scrutiny_reviewed_by: string | null
+  scrutiny_reviewed_at: string | null
+  scrutiny_rejection_reason: string | null
   comments: CaseComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
@@ -333,6 +341,7 @@ export interface CaseDashboardCard {
   priority: string
   status: CaseStatus
   lifecycle_stage: CaseLifecycleStage | null
+  scrutiny_review_status: 'approved' | 'rejected' | null
   assignee_names: string[]
   created_at: string
 }

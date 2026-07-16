@@ -28,6 +28,10 @@ export function getOverdueCases(): Promise<Case[]> {
   return get<Case[]>('/dashboard/overdue')
 }
 
+export function getScrutinyActionRequired(): Promise<Case[]> {
+  return get<Case[]>('/dashboard/scrutiny-action-required')
+}
+
 export function getMyWork(): Promise<MyWorkResponse> {
   return get<MyWorkResponse>('/dashboard/my-work')
 }

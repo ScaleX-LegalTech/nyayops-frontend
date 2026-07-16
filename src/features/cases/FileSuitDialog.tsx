@@ -16,6 +16,7 @@ export function FileSuitDialog({
   onClose,
   caseId,
   documents = [],
+  scrutinyApproved = false,
 }: {
   open: boolean
   onClose: () => void
@@ -23,8 +24,13 @@ export function FileSuitDialog({
   /** Scrutiny requires a scrutiny_report on file before the suit can be filed -
    * see REQUIRED_DOC_TYPE_FOR (domain/case_fsm.py enforces the same). */
   documents?: DocumentCard[]
+  /** Scrutiny also needs to be explicitly approved (cases:approve_scrutiny),
+   * separate from just having a document on file - see CaseService.
+   * add_case_details's scrutiny_not_approved check. */
+  scrutinyApproved?: boolean
 }) {
   const missingScrutinyReport = !documents.some((d) => d.doc_type === 'scrutiny_report')
+  const scrutinyNotApproved = !missingScrutinyReport && !scrutinyApproved
   const [uploading, setUploading] = useState(false)
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -88,7 +94,8 @@ export function FileSuitDialog({
               !caseType.trim() ||
               !courtJurisdiction.trim() ||
               !region.trim() ||
-              missingScrutinyReport
+              missingScrutinyReport ||
+              scrutinyNotApproved
             }
           >
             Save
@@ -111,6 +118,12 @@ export function FileSuitDialog({
               Upload
             </Button>
           </div>
+        )}
+        {scrutinyNotApproved && (
+          <p className="rounded-control border border-dashed border-border bg-surface-muted px-3 py-2 text-xs text-ink-muted">
+            Scrutiny hasn't been approved yet — someone with scrutiny-approval access needs to
+            sign off on the case page before this can be filed.
+          </p>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Case type" required>

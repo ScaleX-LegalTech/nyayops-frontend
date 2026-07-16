@@ -621,6 +621,7 @@ export default function CaseDetailPage() {
         onClose={() => setFilingSuit(false)}
         caseId={caseId}
         documents={documents ?? []}
+        scrutinyApproved={c.scrutiny_review_status === 'approved'}
       />
 
       <Dialog

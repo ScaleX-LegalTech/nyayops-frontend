@@ -18,6 +18,7 @@ import {
   ClipboardClock,
   ClipboardList,
   IndianRupee,
+  ShieldAlert,
   Users,
 } from 'lucide-react'
 import {
@@ -26,6 +27,7 @@ import {
   getKpis,
   getMyWork,
   getOverdueCases,
+  getScrutinyActionRequired,
   getTopCourts,
 } from '@/lib/api/dashboard'
 import { getOrganizationName } from '@/lib/api/organization'
@@ -326,6 +328,11 @@ function OverviewView() {
     queryFn: getOverdueCases,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
+  const scrutinyActionRequired = useQuery({
+    queryKey: qk.scrutinyActionRequired,
+    queryFn: getScrutinyActionRequired,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
 
   const statusData = (byStatus.data ?? []).map((d) => ({
     name: humanize(d.status),
@@ -365,6 +372,13 @@ function OverviewView() {
           label="Associate activity"
           value={kpis.data?.associate_activity}
           tone="bg-info-soft text-info"
+          isLoading={kpis.isLoading}
+        />
+        <KpiCard
+          icon={ShieldAlert}
+          label="Scrutiny action required"
+          value={kpis.data?.scrutiny_action_required}
+          tone="bg-danger-soft text-danger"
           isLoading={kpis.isLoading}
         />
       </div>
@@ -494,6 +508,17 @@ function OverviewView() {
           emptyTitle="Nothing overdue"
           emptyDescription="Your team is on track."
           showHearingDate
+        />
+      </div>
+
+      <div className="mt-6">
+        <CaseListCard
+          title="Scrutiny action required"
+          description="Rejected scrutiny - needs a corrected document and re-approval"
+          cases={scrutinyActionRequired.data ?? []}
+          isLoading={scrutinyActionRequired.isLoading}
+          emptyTitle="Nothing needs action"
+          emptyDescription="No scrutiny has been rejected right now."
         />
       </div>
 
