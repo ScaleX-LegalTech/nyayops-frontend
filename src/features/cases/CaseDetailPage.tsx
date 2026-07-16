@@ -609,9 +609,19 @@ export default function CaseDetailPage() {
         target={previewTarget}
       />
 
-      <LinkCnrDialog open={linkingCnr} onClose={() => setLinkingCnr(false)} caseId={caseId} />
+      <LinkCnrDialog
+        open={linkingCnr}
+        onClose={() => setLinkingCnr(false)}
+        caseId={caseId}
+        documents={documents ?? []}
+      />
 
-      <FileSuitDialog open={filingSuit} onClose={() => setFilingSuit(false)} caseId={caseId} />
+      <FileSuitDialog
+        open={filingSuit}
+        onClose={() => setFilingSuit(false)}
+        caseId={caseId}
+        documents={documents ?? []}
+      />
 
       <Dialog
         open={confirmDelete}

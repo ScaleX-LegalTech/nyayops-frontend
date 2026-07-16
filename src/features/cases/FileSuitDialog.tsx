@@ -8,16 +8,23 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
 import { DatePicker } from '@/components/ui/DatePicker'
+import type { DocumentCard } from '@/types'
 
 export function FileSuitDialog({
   open,
   onClose,
   caseId,
+  documents = [],
 }: {
   open: boolean
   onClose: () => void
   caseId: string
+  /** For the "no scrutiny report on file yet" nudge below - not enforced, just a
+   * heads-up (see OPTIONAL_DOC_TYPE_FOR). Optional prop so existing call sites
+   * that don't have this handy don't need to change. */
+  documents?: DocumentCard[]
 }) {
+  const missingScrutinyReport = !documents.some((d) => d.doc_type === 'scrutiny_report')
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [caseType, setCaseType] = useState('')
@@ -91,6 +98,12 @@ export function FileSuitDialog({
         }}
         className="space-y-4"
       >
+        {missingScrutinyReport && (
+          <p className="rounded-control border border-dashed border-border bg-surface-muted px-3 py-2 text-xs text-ink-muted">
+            No scrutiny report on file yet — you can still file, or upload one from the case page
+            first.
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Case type" required>
             <Input
