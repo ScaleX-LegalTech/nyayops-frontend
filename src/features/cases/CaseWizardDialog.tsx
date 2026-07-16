@@ -82,10 +82,6 @@ export function CaseWizardDialog({
       }),
     onSuccess: (created) => {
       setCaseRecord(created)
-      // The creator is always auto-assigned as case owner (see backend
-      // SqlCaseRepository.create_case) - reflect that as pre-ticked here rather
-      // than showing an empty picker for someone who's already assigned.
-      setAssignedUserIds(created.assigned_user_ids)
       setStep(2)
     },
     errorFallback: 'Could not create case.',
@@ -214,7 +210,10 @@ export function CaseWizardDialog({
       )}
 
       {step === 2 && (
-        <Field label="Assign to" hint="Optional — you're already the owner of this case.">
+        <Field
+          label="Assign to"
+          hint="Optional — you'll stay the case owner either way; skip this to leave it unassigned for now."
+        >
           <UserMultiSelect
             caseIds={caseRecord ? [caseRecord.id] : []}
             selected={assignedUserIds}
