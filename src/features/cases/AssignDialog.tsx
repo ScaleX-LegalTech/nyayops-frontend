@@ -13,13 +13,31 @@ interface AssignDialogProps {
   open: boolean
   onClose: () => void
   caseIds: string[]
+  /** Already-assigned users to pre-tick - only meaningful for a single-case
+   * dialog (the case page's Assign button); bulk assign from the list has no
+   * single shared assignee set, so callers there just omit it. */
+  initialSelected?: string[]
   onDone: () => void
 }
 
-export function AssignDialog({ open, onClose, caseIds, onDone }: AssignDialogProps) {
+export function AssignDialog({
+  open,
+  onClose,
+  caseIds,
+  initialSelected = [],
+  onDone,
+}: AssignDialogProps) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [selected, setSelected] = useState<string[]>([])
+  const [selected, setSelected] = useState<string[]>(initialSelected)
+  // Re-seed `selected` from `initialSelected` each time the dialog opens - the
+  // documented "adjust state during render" pattern (no effect needed) since
+  // this dialog stays mounted with `open` just toggling visibility.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setSelected(initialSelected)
+  }
 
   const mutation = useMutationWithToast({
     mutationFn: () => bulkAssignCases(caseIds, selected),
@@ -55,7 +73,7 @@ export function AssignDialog({ open, onClose, caseIds, onDone }: AssignDialogPro
       }
     >
       <Field label="Assignees">
-        <UserMultiSelect selected={selected} onChange={setSelected} />
+        <UserMultiSelect caseIds={caseIds} selected={selected} onChange={setSelected} />
       </Field>
     </Dialog>
   )

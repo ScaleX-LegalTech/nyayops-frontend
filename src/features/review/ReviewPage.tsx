@@ -231,7 +231,11 @@ export default function ReviewPage() {
         >
           {active?.action === 'reassign' && (
             <Field label="Assign to" error={reassignNeedsUser ? 'Select at least one user.' : undefined}>
-              <UserMultiSelect selected={assignees} onChange={setAssignees} />
+              <UserMultiSelect
+                caseIds={active ? [active.case.id] : []}
+                selected={assignees}
+                onChange={setAssignees}
+              />
             </Field>
           )}
           <Field

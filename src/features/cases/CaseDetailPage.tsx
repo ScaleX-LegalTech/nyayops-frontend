@@ -431,6 +431,7 @@ export default function CaseDetailPage() {
                 <Detail label="Filing date" value={formatDate(c.filing_date)} />
                 <Detail label="Hearing date" value={formatDate(c.hearing_date)} />
                 <Detail label="Created" value={formatDate(c.created_at)} />
+                <Detail label="Owner" value={nameOf(c.created_by)} />
                 <Detail
                   label="Assignees"
                   value={
@@ -577,6 +578,7 @@ export default function CaseDetailPage() {
         open={assigning}
         onClose={() => setAssigning(false)}
         caseIds={[caseId]}
+        initialSelected={c.assigned_user_ids}
         onDone={() => {}}
       />
 

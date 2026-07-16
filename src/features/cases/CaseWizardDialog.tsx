@@ -210,8 +210,12 @@ export function CaseWizardDialog({
       )}
 
       {step === 2 && (
-        <Field label="Assign to" hint="Optional — you're already the owner of this case.">
+        <Field
+          label="Assign to"
+          hint="Optional — you'll stay the case owner either way; skip this to leave it unassigned for now."
+        >
           <UserMultiSelect
+            caseIds={caseRecord ? [caseRecord.id] : []}
             selected={assignedUserIds}
             onChange={setAssignedUserIds}
             emptyHint="You don't have permission to list users for assignment."

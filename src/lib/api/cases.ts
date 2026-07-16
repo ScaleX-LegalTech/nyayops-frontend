@@ -42,6 +42,14 @@ export function getCasePeople(caseId: string): Promise<CasePerson[]> {
   return get<CasePerson[]>(`/cases/${caseId}/people`)
 }
 
+/** Assign/Reassign dialog candidates - scoped to the given cases' own branch(es),
+ * not every tenant user (see assignable-people on the backend). */
+export function getAssignablePeople(caseIds: string[]): Promise<CasePerson[]> {
+  const params = new URLSearchParams()
+  caseIds.forEach((id) => params.append('case_ids', id))
+  return get<CasePerson[]>(`/cases/assignable-people?${params.toString()}`)
+}
+
 export function createCase(payload: CaseCreateRequest): Promise<Case> {
   return post<Case>('/cases', payload)
 }
