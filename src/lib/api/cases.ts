@@ -7,6 +7,8 @@ import type {
   CaseFullDetailsResponse,
   CaseHistoryCreate,
   CaseLifecycleStage,
+  CaseOption,
+  CasePage,
   CasePartyCreate,
   CasePerson,
   CaseSearchFilters,
@@ -18,8 +20,14 @@ import type {
 } from '@/types'
 import { del, get, getBlob, patch, post, toQuery } from './client'
 
-export function listCases(filters: CaseSearchFilters = {}): Promise<Case[]> {
-  return get<Case[]>(`/cases${toQuery(filters)}`)
+export function listCases(filters: CaseSearchFilters = {}): Promise<CasePage> {
+  return get<CasePage>(`/cases${toQuery(filters)}`)
+}
+
+/** Backs case-picker dropdowns (document upload/filter) - id/title/status/
+ * lifecycle_stage only, not the full CaseDashboardCard row shape. */
+export function listCaseOptions(filters: CaseSearchFilters = {}): Promise<CaseOption[]> {
+  return get<CaseOption[]>(`/cases/options${toQuery(filters)}`)
 }
 
 export function getCase(caseId: string): Promise<Case> {

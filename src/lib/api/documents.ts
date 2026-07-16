@@ -1,4 +1,9 @@
-import type { DocumentRecord, DocumentSearchFilters, DocumentUploadResponse } from '@/types'
+import type {
+  DocumentCard,
+  DocumentRecord,
+  DocumentSearchFilters,
+  DocumentUploadResponse,
+} from '@/types'
 import { API_ORIGIN, del, get, getBlob, post, toQuery } from './client'
 import { getAccessToken } from './tokens'
 
@@ -21,8 +26,14 @@ export interface VersionPayload {
   metadata?: Record<string, unknown>
 }
 
-export function listDocuments(filters: DocumentSearchFilters = {}): Promise<DocumentRecord[]> {
-  return get<DocumentRecord[]>(`/documents${toQuery(filters)}`)
+export function listDocuments(filters: DocumentSearchFilters = {}): Promise<DocumentCard[]> {
+  return get<DocumentCard[]>(`/documents${toQuery(filters)}`)
+}
+
+/** Full detail including the entire version history - only fetched when a
+ * document row is actually expanded, not as part of the list. */
+export function getDocument(documentId: string): Promise<DocumentRecord> {
+  return get<DocumentRecord>(`/documents/${documentId}`)
 }
 
 export function createUploadUrl(payload: UploadUrlPayload): Promise<DocumentUploadResponse> {

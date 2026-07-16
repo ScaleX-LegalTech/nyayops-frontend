@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building2,
   KeyRound,
@@ -33,9 +33,11 @@ import { Field, Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
 import { PersonAvatar } from '@/components/ui/Avatar'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
+import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
 import type { Branch, User } from '@/types'
+
+const PAGE_SIZE = 50
 
 export default function UsersPage() {
   const queryClient = useQueryClient()
@@ -45,10 +47,23 @@ export default function UsersPage() {
   const [managingRoles, setManagingRoles] = useState<User | null>(null)
   const [deleting, setDeleting] = useState<User | null>(null)
   const [resettingPassword, setResettingPassword] = useState<User | null>(null)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: qk.users,
-    queryFn: listUsers,
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: qk.usersPage(),
+    queryFn: ({ pageParam }) => listUsers({ limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.has_more ? allPages.reduce((sum, page) => sum + page.items.length, 0) : undefined,
   })
   const rolesQuery = useQuery({ queryKey: qk.roles, queryFn: listRoles })
   const branchesQuery = useQuery({
@@ -61,10 +76,25 @@ export default function UsersPage() {
     queryClient.invalidateQueries({ queryKey: qk.users })
   }
 
-  const users = data ?? []
+  const users = data?.pages.flatMap((page) => page.items) ?? []
   const roleName = (id: string) => rolesQuery.data?.find((r) => r.id === id)?.name ?? id.slice(0, 6)
   const branchName = (id: string | null) =>
     id ? branchesQuery.data?.find((b) => b.id === id)?.name ?? id.slice(0, 6) : 'Org-wide'
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '400px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   return (
     <div className="animate-rise">
@@ -87,6 +117,7 @@ export default function UsersPage() {
           <EmptyState icon={Users} title="No users yet" />
         </TableWrap>
       ) : (
+        <>
         <TableWrap>
           <Table>
             <THead>
@@ -159,6 +190,10 @@ export default function UsersPage() {
             </TBody>
           </Table>
         </TableWrap>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isFetchingNextPage && <Spinner />}
+        </div>
+        </>
       )}
 
       {inviting && (
