@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import type { CaseSearchFilters, DocumentSearchFilters } from '@/types'
+import type { CaseSearchFilters, DocumentSearchFilters, UserSearchFilters } from '@/types'
 
 /** Central query-key registry so invalidation stays consistent. */
 export const qk = {
@@ -10,6 +10,7 @@ export const qk = {
   overdue: ['dashboard', 'overdue'] as const,
   myWork: ['dashboard', 'my-work'] as const,
   cases: (filters: CaseSearchFilters = {}) => ['cases', 'list', filters] as const,
+  caseOptions: (filters: CaseSearchFilters = {}) => ['cases', 'options', filters] as const,
   caseDetail: (id: string) => ['cases', 'detail', id] as const,
   caseFullDetails: (id: string) => ['cases', 'full-details', id] as const,
   cnrBusinessDetail: (id: string, section: string, row: number) =>
@@ -20,7 +21,12 @@ export const qk = {
   deletedCases: ['cases', 'deleted'] as const,
   reviewQueue: ['review', 'queue'] as const,
   documents: (filters: DocumentSearchFilters = {}) => ['documents', 'list', filters] as const,
+  documentDetail: (id: string) => ['documents', 'detail', id] as const,
+  // Bare ['users'] is the directory-wide lookup (useUsers, id->name resolution);
+  // usersPage is the paginated admin Users list - kept distinct so an infinite
+  // query and a regular query never share a cache key.
   users: ['users'] as const,
+  usersPage: (filters: UserSearchFilters = {}) => ['users', 'page', filters] as const,
   myPermissions: ['me', 'permissions'] as const,
   myProfile: ['me', 'profile'] as const,
   branches: ['branches'] as const,

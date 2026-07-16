@@ -1,5 +1,13 @@
-import type { Branch, Permission, Role, RolePreviewResponse, User } from '@/types'
-import { del, get, patch, post, put } from './client'
+import type {
+  Branch,
+  Permission,
+  Role,
+  RolePreviewResponse,
+  User,
+  UserPage,
+  UserSearchFilters,
+} from '@/types'
+import { del, get, patch, post, put, toQuery } from './client'
 
 // Branches ---------------------------------------------------------------------
 
@@ -51,8 +59,8 @@ export interface UpdateUserPayload {
   is_restricted?: boolean
 }
 
-export function listUsers(): Promise<User[]> {
-  return get<User[]>('/users')
+export function listUsers(filters: UserSearchFilters = {}): Promise<UserPage> {
+  return get<UserPage>(`/users${toQuery(filters)}`)
 }
 
 export function getUser(userId: string): Promise<User> {

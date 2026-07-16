@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Loader2, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { ApiError } from '@/lib/api/client'
@@ -16,9 +16,19 @@ export function LoadingState({ label = 'Loading…' }: { label?: string }) {
   )
 }
 
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({
+  className,
+  style,
+}: {
+  className?: string
+  style?: CSSProperties
+}) {
   return (
-    <div className={cn('animate-pulse rounded-md bg-surface-muted', className)} aria-hidden />
+    <div
+      className={cn('animate-pulse rounded-md bg-surface-muted', className)}
+      style={style}
+      aria-hidden
+    />
   )
 }
 

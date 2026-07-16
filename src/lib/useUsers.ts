@@ -9,12 +9,15 @@ import type { User } from '@/types'
  * Requires `users:read`; non-admins get an empty map (we never throw).
  */
 export function useUsers() {
+  // 200 is the max page size the API allows - this is a directory for name lookups
+  // and assignment pickers, not a paginated list, so it wants as many users as the
+  // API will give in one shot.
   const query = useQuery({
     queryKey: qk.users,
-    queryFn: listUsers,
+    queryFn: () => listUsers({ limit: 200 }),
     retry: false,
   })
-  const users = useMemo(() => query.data ?? [], [query.data])
+  const users = useMemo(() => query.data?.items ?? [], [query.data])
   const map = useMemo(() => new Map<string, User>(users.map((u) => [u.id, u])), [users])
 
   const nameOf = (id: string) => map.get(id)?.full_name ?? `${id.slice(0, 8)}…`

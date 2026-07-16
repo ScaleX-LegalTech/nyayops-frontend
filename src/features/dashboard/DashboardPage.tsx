@@ -39,21 +39,28 @@ import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { EntityAvatar } from '@/components/ui/Avatar'
-import { EmptyState, LoadingState } from '@/components/ui/Feedback'
+import { EmptyState, Skeleton } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
 import type { Case, Issue, PaymentMilestone } from '@/types'
 import type { LucideIcon } from 'lucide-react'
+
+// Aggregate dashboard stats don't need to feel real-time - a longer staleTime than
+// the 30s default means wandering off to a case and back doesn't trigger a visible
+// background refetch every time.
+const DASHBOARD_STALE_TIME_MS = 120_000
 
 function KpiCard({
   icon: Icon,
   label,
   value,
   tone,
+  isLoading,
 }: {
   icon: LucideIcon
   label: string
   value: number | undefined
   tone: string
+  isLoading?: boolean
 }) {
   return (
     <Card className="p-5">
@@ -62,11 +69,35 @@ function KpiCard({
           <Icon className="size-5" />
         </span>
       </div>
-      <p className="mt-4 text-3xl font-semibold tabular text-ink">
-        {value ?? '—'}
-      </p>
+      {isLoading ? (
+        <Skeleton className="mt-4 h-9 w-14" />
+      ) : (
+        <p className="mt-4 text-3xl font-semibold tabular text-ink">{value ?? '—'}</p>
+      )}
       <p className="mt-1 text-sm text-ink-muted">{label}</p>
     </Card>
+  )
+}
+
+function ChartSkeleton({ height = 220 }: { height?: number }) {
+  return <Skeleton className="w-full" style={{ height }} />
+}
+
+/** Row-skeleton placeholder matching CaseListCard's row shape, shown while its
+ * backing query is still in flight. */
+function ListRowsSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="divide-y divide-border">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-5 py-3">
+          <Skeleton className="size-9 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-2/3" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -76,6 +107,7 @@ function CaseListCard({
   title,
   description,
   cases,
+  isLoading,
   emptyTitle,
   emptyDescription,
   showHearingDate,
@@ -83,6 +115,7 @@ function CaseListCard({
   title: string
   description?: string
   cases: Case[]
+  isLoading?: boolean
   emptyTitle: string
   emptyDescription?: string
   showHearingDate?: boolean
@@ -99,7 +132,9 @@ function CaseListCard({
         }
       />
       <CardBody className="border-t border-border p-0">
-        {cases.length === 0 ? (
+        {isLoading ? (
+          <ListRowsSkeleton />
+        ) : cases.length === 0 ? (
           <EmptyState title={emptyTitle} description={emptyDescription} />
         ) : (
           <div className="divide-y divide-border">
@@ -127,7 +162,7 @@ function CaseListCard({
   )
 }
 
-function IssueListCard({ issues }: { issues: Issue[] }) {
+function IssueListCard({ issues, isLoading }: { issues: Issue[]; isLoading?: boolean }) {
   return (
     <Card>
       <CardHeader
@@ -135,7 +170,9 @@ function IssueListCard({ issues }: { issues: Issue[] }) {
         description="Routed to you, not yet resolved"
       />
       <CardBody className="border-t border-border p-0">
-        {issues.length === 0 ? (
+        {isLoading ? (
+          <ListRowsSkeleton />
+        ) : issues.length === 0 ? (
           <EmptyState
             icon={ClipboardList}
             title="Nothing waiting on you"
@@ -166,7 +203,13 @@ function IssueListCard({ issues }: { issues: Issue[] }) {
   )
 }
 
-function PaymentFollowUpCard({ milestones }: { milestones: PaymentMilestone[] }) {
+function PaymentFollowUpCard({
+  milestones,
+  isLoading,
+}: {
+  milestones: PaymentMilestone[]
+  isLoading?: boolean
+}) {
   return (
     <Card>
       <CardHeader
@@ -174,7 +217,9 @@ function PaymentFollowUpCard({ milestones }: { milestones: PaymentMilestone[] })
         description="Fee milestones still awaiting action, on your cases"
       />
       <CardBody className="border-t border-border p-0">
-        {milestones.length === 0 ? (
+        {isLoading ? (
+          <ListRowsSkeleton />
+        ) : milestones.length === 0 ? (
           <EmptyState
             icon={IndianRupee}
             title="Nothing to follow up on"
@@ -208,10 +253,12 @@ function PaymentFollowUpCard({ milestones }: { milestones: PaymentMilestone[] })
 /** Personal dashboard - every authenticated user gets this, scoped to exactly what
  * they created/are assigned to/were routed. No permission required to view it. */
 function MyWorkView() {
-  const myWork = useQuery({ queryKey: qk.myWork, queryFn: getMyWork })
-
-  if (myWork.isLoading) return <LoadingState label="Loading your work…" />
-
+  const myWork = useQuery({
+    queryKey: qk.myWork,
+    queryFn: getMyWork,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const isLoading = myWork.isLoading
   const data = myWork.data
 
   return (
@@ -221,25 +268,28 @@ function MyWorkView() {
           title="My cases"
           description="Cases you created or are assigned to"
           cases={data?.my_cases ?? []}
+          isLoading={isLoading}
           emptyTitle="No cases yet"
           emptyDescription="Cases you create or get assigned to will show up here."
         />
-        <IssueListCard issues={data?.open_issues ?? []} />
+        <IssueListCard issues={data?.open_issues ?? []} isLoading={isLoading} />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Next hearing dates"
           description="Your upcoming hearings, soonest first"
           cases={data?.upcoming_hearings ?? []}
+          isLoading={isLoading}
           emptyTitle="No upcoming hearings"
           showHearingDate
         />
-        <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} />
+        <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} isLoading={isLoading} />
       </div>
       <CaseListCard
         title="Overdue flags"
         description="Past their hearing date and not yet closed"
         cases={data?.overdue_cases ?? []}
+        isLoading={isLoading}
         emptyTitle="Nothing overdue"
         emptyDescription="You're on track."
         showHearingDate
@@ -251,13 +301,31 @@ function MyWorkView() {
 /** The aggregate oversight view - unchanged from before, just extracted into its
  * own component so it mounts (and fetches) only when its tab is actually selected. */
 function OverviewView() {
-  const kpis = useQuery({ queryKey: qk.kpis, queryFn: getKpis })
-  const byStatus = useQuery({ queryKey: qk.casesByStatus, queryFn: getCasesByStatus })
-  const topCourts = useQuery({ queryKey: qk.topCourts, queryFn: getTopCourts })
-  const activity = useQuery({ queryKey: qk.activity, queryFn: getActivity })
-  const overdue = useQuery({ queryKey: qk.overdue, queryFn: getOverdueCases })
-
-  if (kpis.isLoading) return <LoadingState label="Loading dashboard…" />
+  const kpis = useQuery({
+    queryKey: qk.kpis,
+    queryFn: getKpis,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const byStatus = useQuery({
+    queryKey: qk.casesByStatus,
+    queryFn: getCasesByStatus,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const topCourts = useQuery({
+    queryKey: qk.topCourts,
+    queryFn: getTopCourts,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const activity = useQuery({
+    queryKey: qk.activity,
+    queryFn: getActivity,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const overdue = useQuery({
+    queryKey: qk.overdue,
+    queryFn: getOverdueCases,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
 
   const statusData = (byStatus.data ?? []).map((d) => ({
     name: humanize(d.status),
@@ -276,24 +344,28 @@ function OverviewView() {
           label="New cases today"
           value={kpis.data?.cases_today}
           tone="bg-brand-soft text-brand"
+          isLoading={kpis.isLoading}
         />
         <KpiCard
           icon={ClipboardClock}
           label="Pending reviews"
           value={kpis.data?.pending_reviews}
           tone="bg-warning-soft text-warning-strong"
+          isLoading={kpis.isLoading}
         />
         <KpiCard
           icon={AlertTriangle}
           label="Overdue cases"
           value={kpis.data?.overdue_cases}
           tone="bg-danger-soft text-danger"
+          isLoading={kpis.isLoading}
         />
         <KpiCard
           icon={Users}
           label="Associate activity"
           value={kpis.data?.associate_activity}
           tone="bg-info-soft text-info"
+          isLoading={kpis.isLoading}
         />
       </div>
 
@@ -301,7 +373,9 @@ function OverviewView() {
         <Card>
           <CardHeader title="Case snapshot" description="Distribution across the workflow" />
           <CardBody className="border-t border-border">
-            {statusData.length === 0 ? (
+            {byStatus.isLoading ? (
+              <ChartSkeleton height={200} />
+            ) : statusData.length === 0 ? (
               <EmptyState title="No cases yet" />
             ) : (
               <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -315,6 +389,7 @@ function OverviewView() {
                       outerRadius={88}
                       paddingAngle={2}
                       stroke="none"
+                      isAnimationActive={false}
                     >
                       {statusData.map((_, i) => (
                         <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
@@ -343,7 +418,9 @@ function OverviewView() {
         <Card>
           <CardHeader title="Court-wise snapshot" description="Where your caseload concentrates" />
           <CardBody className="border-t border-border">
-            {courtData.length === 0 ? (
+            {topCourts.isLoading ? (
+              <ChartSkeleton />
+            ) : courtData.length === 0 ? (
               <EmptyState title="No court data yet" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -358,7 +435,13 @@ function OverviewView() {
                     tickLine={false}
                   />
                   <Tooltip cursor={{ fill: CHART_TOOLTIP_CURSOR }} />
-                  <Bar dataKey="count" fill={CHART_BAR_FILL} radius={[0, 4, 4, 0]} barSize={18} />
+                  <Bar
+                    dataKey="count"
+                    fill={CHART_BAR_FILL}
+                    radius={[0, 4, 4, 0]}
+                    barSize={18}
+                    isAnimationActive={false}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -371,21 +454,33 @@ function OverviewView() {
           <CardHeader title="Activity today" />
           <CardBody className="grid grid-cols-3 gap-3 border-t border-border text-center">
             <div>
-              <p className="text-2xl font-semibold tabular text-ink">
-                {activity.data?.active_users_today ?? '—'}
-              </p>
+              {activity.isLoading ? (
+                <Skeleton className="mx-auto h-7 w-8" />
+              ) : (
+                <p className="text-2xl font-semibold tabular text-ink">
+                  {activity.data?.active_users_today ?? '—'}
+                </p>
+              )}
               <p className="mt-1 text-xs text-ink-muted">Active users</p>
             </div>
             <div>
-              <p className="text-2xl font-semibold tabular text-ink">
-                {activity.data?.cases_in_progress ?? '—'}
-              </p>
+              {activity.isLoading ? (
+                <Skeleton className="mx-auto h-7 w-8" />
+              ) : (
+                <p className="text-2xl font-semibold tabular text-ink">
+                  {activity.data?.cases_in_progress ?? '—'}
+                </p>
+              )}
               <p className="mt-1 text-xs text-ink-muted">In progress</p>
             </div>
             <div>
-              <p className="text-2xl font-semibold tabular text-ink">
-                {activity.data?.notifications_sent ?? '—'}
-              </p>
+              {activity.isLoading ? (
+                <Skeleton className="mx-auto h-7 w-8" />
+              ) : (
+                <p className="text-2xl font-semibold tabular text-ink">
+                  {activity.data?.notifications_sent ?? '—'}
+                </p>
+              )}
               <p className="mt-1 text-xs text-ink-muted">Alerts sent</p>
             </div>
           </CardBody>
@@ -395,6 +490,7 @@ function OverviewView() {
           title="Overdue cases"
           description="Past their hearing date and not yet closed"
           cases={overdue.data ?? []}
+          isLoading={overdue.isLoading}
           emptyTitle="Nothing overdue"
           emptyDescription="Your team is on track."
           showHearingDate

@@ -15,7 +15,6 @@ import {
   MessageSquarePlus,
   Pencil,
   Plus,
-  RotateCcw,
   Trash2,
   UserCog,
   UserPlus,
@@ -44,7 +43,7 @@ import { EditCaseDialog } from './EditCaseDialog'
 import { AssignDialog } from './AssignDialog'
 import { ReassignDialog } from './ReassignDialog'
 import { UploadDialog } from '@/features/documents/UploadDialog'
-import { SCAN_TONE } from '@/features/documents/DocumentsPage'
+import { SCAN_TONE, VersionHistory } from '@/features/documents/DocumentsPage'
 import { CaseLifecycleTracker } from './CaseLifecycleTracker'
 import { LinkCnrDialog } from './LinkCnrDialog'
 import { FileSuitDialog } from './FileSuitDialog'
@@ -317,13 +316,14 @@ export default function CaseDetailPage() {
           ) : (
             <ul className="space-y-2">
               {shownDocuments.map((doc) => {
-                const latest = doc.versions[doc.versions.length - 1]
-                const earliest = doc.versions[0]
+                const latest = doc.latest_version
                 const isOpen = expandedDoc === doc.id
                 const docStage = STAGE_FOR_DOC_TYPE[doc.doc_type]
                 const exitedAt = docStage ? stageExitedAt(c.lifecycle_history, docStage) : null
                 const addedLater =
-                  exitedAt != null && earliest != null && earliest.uploaded_at > exitedAt
+                  exitedAt != null &&
+                  doc.first_version_uploaded_at != null &&
+                  doc.first_version_uploaded_at > exitedAt
                 return (
                   <li key={doc.id} className="rounded-control bg-surface-muted text-sm">
                     <div className="flex items-center gap-2.5 px-3.5 py-2.5">
@@ -344,8 +344,8 @@ export default function CaseDetailPage() {
                         <p className="truncate text-ink">{doc.title}</p>
                         {latest && (
                           <p className="text-xs text-ink-faint">
-                            {formatBytes(latest.file_size_bytes)} · {doc.versions.length} version
-                            {doc.versions.length === 1 ? '' : 's'} · {nameOf(doc.uploaded_by)},{' '}
+                            {formatBytes(latest.file_size_bytes)} · {doc.version_count} version
+                            {doc.version_count === 1 ? '' : 's'} · {doc.uploaded_by_name},{' '}
                             {formatDateTime(latest.uploaded_at)}
                           </p>
                         )}
@@ -399,70 +399,15 @@ export default function CaseDetailPage() {
                     </div>
                     {isOpen && (
                       <div className="border-t border-border/60 px-3.5 py-2.5">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                          Version history
-                        </p>
-                        <ul className="space-y-1.5">
-                          {[...doc.versions]
-                            .sort((a, b) => b.version_number - a.version_number)
-                            .map((v, idx) => (
-                              <li
-                                key={v.id}
-                                className="flex flex-wrap items-center gap-3 rounded-control bg-surface px-3 py-2 text-sm"
-                              >
-                                <Badge tone={idx === 0 ? 'brand' : 'neutral'}>
-                                  v{v.version_number}
-                                </Badge>
-                                <span className="text-ink-muted">
-                                  {formatBytes(v.file_size_bytes)}
-                                </span>
-                                <span className="text-ink-muted">{nameOf(v.uploaded_by)}</span>
-                                <span className="text-ink-faint">
-                                  {formatDateTime(v.uploaded_at)}
-                                </span>
-                                {v.change_note && (
-                                  <span className="text-ink-muted">· {v.change_note}</span>
-                                )}
-                                <div className="ml-auto flex gap-1">
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    aria-label={`View version ${v.version_number}`}
-                                    onClick={() =>
-                                      setPreviewTarget({
-                                        load: () => loadDocumentBlob(v.storage_key),
-                                        mimeType: v.mime_type,
-                                        title: `${doc.title} (v${v.version_number})`,
-                                      })
-                                    }
-                                  >
-                                    <Eye className="size-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    aria-label={`Download version ${v.version_number}`}
-                                    onClick={() => downloadDocument(v.storage_key)}
-                                  >
-                                    <Download className="size-4" />
-                                  </Button>
-                                  {idx !== 0 && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      aria-label={`Roll back to version ${v.version_number}`}
-                                      loading={rollback.isPending}
-                                      onClick={() =>
-                                        rollback.mutate({ docId: doc.id, versionId: v.id })
-                                      }
-                                    >
-                                      <RotateCcw className="size-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                        </ul>
+                        <VersionHistory
+                          documentId={doc.id}
+                          docTitle={doc.title}
+                          isOpen={isOpen}
+                          rollbackPending={rollback.isPending}
+                          onRollback={(versionId) => rollback.mutate({ docId: doc.id, versionId })}
+                          onPreview={setPreviewTarget}
+                          onDownload={downloadDocument}
+                        />
                       </div>
                     )}
                   </li>

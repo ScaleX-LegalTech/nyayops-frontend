@@ -15,23 +15,23 @@ import {
 import {
   deleteDocument,
   downloadDocument,
+  getDocument,
   listDocuments,
   loadDocumentBlob,
   rollbackVersion,
 } from '@/lib/api/documents'
-import { listCases } from '@/lib/api/cases'
 import { qk } from '@/lib/queryKeys'
 import { formatBytes, formatDateTime, humanize } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
-import { useUsers } from '@/lib/useUsers'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { Input, Select } from '@/components/ui/Field'
+import { Input } from '@/components/ui/Field'
+import { CaseCombobox } from '@/components/ui/CaseCombobox'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
+import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { Dialog } from '@/components/ui/Dialog'
 import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
 import { UploadDialog } from './UploadDialog'
@@ -47,7 +47,6 @@ export const SCAN_TONE: Record<string, Tone> = {
 export default function DocumentsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { nameOf } = useUsers()
   const { isManagingDirector, isBranchAdmin } = useAuth()
   const isAdmin = isManagingDirector || isBranchAdmin
   const [caseId, setCaseId] = useState('')
@@ -63,8 +62,6 @@ export default function DocumentsPage() {
     () => ({ case_id: caseId || undefined, title: title || undefined }),
     [caseId, title],
   )
-
-  const casesQuery = useQuery({ queryKey: qk.cases(), queryFn: () => listCases() })
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.documents(filters),
     queryFn: () => listDocuments(filters),
@@ -103,7 +100,6 @@ export default function DocumentsPage() {
   // simpler list below for finding and cleaning up orphaned uploads.
   const docs = (data ?? []).filter((doc) => !HIDDEN_DOC_TYPES.has(doc.doc_type))
   const hiddenDocs = (data ?? []).filter((doc) => HIDDEN_DOC_TYPES.has(doc.doc_type))
-  const caseTitle = (id: string) => casesQuery.data?.find((c) => c.id === id)?.title ?? id.slice(0, 8)
 
   return (
     <div className="animate-rise">
@@ -118,14 +114,14 @@ export default function DocumentsPage() {
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-        <Select value={caseId} onChange={(e) => setCaseId(e.target.value)} className="sm:w-64">
-          <option value="">All cases</option>
-          {(casesQuery.data ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </Select>
+        <div className="sm:w-64">
+          <CaseCombobox
+            value={caseId}
+            onChange={(option) => setCaseId(option?.id ?? '')}
+            clearLabel="All cases"
+            placeholder="All cases"
+          />
+        </div>
         <Input
           placeholder="Filter by title…"
           value={title}
@@ -167,7 +163,7 @@ export default function DocumentsPage() {
             </THead>
             <TBody>
               {docs.map((doc) => {
-                const latest = doc.versions[doc.versions.length - 1]
+                const latest = doc.latest_version
                 const isOpen = expanded === doc.id
                 return (
                   <Fragment key={doc.id}>
@@ -194,8 +190,8 @@ export default function DocumentsPage() {
                         )}
                       </Td>
                       <Td className="text-ink-muted">{humanize(doc.doc_type)}</Td>
-                      <Td className="text-ink-muted">{caseTitle(doc.case_id)}</Td>
-                      <Td className="tabular text-ink-muted">{doc.versions.length}</Td>
+                      <Td className="text-ink-muted">{doc.case_title}</Td>
+                      <Td className="tabular text-ink-muted">{doc.version_count}</Td>
                       <Td>
                         {latest && (
                           <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
@@ -255,66 +251,17 @@ export default function DocumentsPage() {
                     {isOpen && (
                       <Tr className="bg-surface-muted/50">
                         <Td colSpan={7} className="px-4 py-3">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                            Version history
-                          </p>
-                          <ul className="space-y-1.5">
-                            {[...doc.versions]
-                              .sort((a, b) => b.version_number - a.version_number)
-                              .map((v, idx) => (
-                                <li
-                                  key={v.id}
-                                  className="flex flex-wrap items-center gap-3 rounded-control bg-surface px-3 py-2 text-sm"
-                                >
-                                  <Badge tone={idx === 0 ? 'brand' : 'neutral'}>
-                                    v{v.version_number}
-                                  </Badge>
-                                  <span className="text-ink-muted">{formatBytes(v.file_size_bytes)}</span>
-                                  <span className="text-ink-muted">{nameOf(v.uploaded_by)}</span>
-                                  <span className="text-ink-faint">{formatDateTime(v.uploaded_at)}</span>
-                                  {v.change_note && (
-                                    <span className="text-ink-muted">· {v.change_note}</span>
-                                  )}
-                                  <div className="ml-auto flex gap-1">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      aria-label={`View version ${v.version_number}`}
-                                      onClick={() =>
-                                        setPreviewTarget({
-                                          load: () => loadDocumentBlob(v.storage_key),
-                                          mimeType: v.mime_type,
-                                          title: `${doc.title} (v${v.version_number})`,
-                                        })
-                                      }
-                                    >
-                                      <Eye className="size-4" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      aria-label={`Download version ${v.version_number}`}
-                                      onClick={() => handleDownload(v.storage_key)}
-                                    >
-                                      <Download className="size-4" />
-                                    </Button>
-                                    {idx !== 0 && (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Roll back to version ${v.version_number}`}
-                                        loading={rollback.isPending}
-                                        onClick={() =>
-                                          rollback.mutate({ docId: doc.id, versionId: v.id })
-                                        }
-                                      >
-                                        <RotateCcw className="size-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </li>
-                              ))}
-                          </ul>
+                          <VersionHistory
+                            documentId={doc.id}
+                            docTitle={doc.title}
+                            isOpen={isOpen}
+                            rollbackPending={rollback.isPending}
+                            onRollback={(versionId) =>
+                              rollback.mutate({ docId: doc.id, versionId })
+                            }
+                            onPreview={setPreviewTarget}
+                            onDownload={handleDownload}
+                          />
                         </Td>
                       </Tr>
                     )}
@@ -343,7 +290,7 @@ export default function DocumentsPage() {
           {showHiddenSection && (
             <ul className="mt-2 space-y-1.5">
               {hiddenDocs.map((doc) => {
-                const latest = doc.versions[doc.versions.length - 1]
+                const latest = doc.latest_version
                 return (
                   <li
                     key={doc.id}
@@ -351,10 +298,10 @@ export default function DocumentsPage() {
                   >
                     <Paperclip className="size-4 shrink-0 text-ink-muted" />
                     <span className="flex-1 truncate text-ink">{doc.title}</span>
-                    <span className="text-ink-muted">{caseTitle(doc.case_id)}</span>
+                    <span className="text-ink-muted">{doc.case_title}</span>
                     {latest && (
                       <span className="text-ink-faint">
-                        {nameOf(doc.uploaded_by)} · {formatDateTime(latest.uploaded_at)}
+                        {doc.uploaded_by_name} · {formatDateTime(latest.uploaded_at)}
                       </span>
                     )}
                     <div className="flex gap-1">
@@ -444,5 +391,99 @@ export default function DocumentsPage() {
         target={previewTarget}
       />
     </div>
+  )
+}
+
+/** Full version history - fetched lazily only once a row is actually expanded,
+ * instead of every document's full version list riding along in the initial
+ * GET /documents response whether anyone opens the row or not. */
+export function VersionHistory({
+  documentId,
+  docTitle,
+  isOpen,
+  rollbackPending,
+  onRollback,
+  onPreview,
+  onDownload,
+}: {
+  documentId: string
+  docTitle: string
+  isOpen: boolean
+  rollbackPending: boolean
+  onRollback: (versionId: string) => void
+  onPreview: (target: PreviewTarget) => void
+  onDownload: (storageKey: string) => void
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: qk.documentDetail(documentId),
+    queryFn: () => getDocument(documentId),
+    enabled: isOpen,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-2 text-sm text-ink-muted">
+        <Spinner /> Loading version history…
+      </div>
+    )
+  }
+
+  const versions = [...(data?.versions ?? [])].sort((a, b) => b.version_number - a.version_number)
+
+  return (
+    <>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        Version history
+      </p>
+      <ul className="space-y-1.5">
+        {versions.map((v, idx) => (
+          <li
+            key={v.id}
+            className="flex flex-wrap items-center gap-3 rounded-control bg-surface px-3 py-2 text-sm"
+          >
+            <Badge tone={idx === 0 ? 'brand' : 'neutral'}>v{v.version_number}</Badge>
+            <span className="text-ink-muted">{formatBytes(v.file_size_bytes)}</span>
+            <span className="text-ink-muted">{v.uploaded_by_name}</span>
+            <span className="text-ink-faint">{formatDateTime(v.uploaded_at)}</span>
+            {v.change_note && <span className="text-ink-muted">· {v.change_note}</span>}
+            <div className="ml-auto flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`View version ${v.version_number}`}
+                onClick={() =>
+                  onPreview({
+                    load: () => loadDocumentBlob(v.storage_key),
+                    mimeType: v.mime_type,
+                    title: `${docTitle} (v${v.version_number})`,
+                  })
+                }
+              >
+                <Eye className="size-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Download version ${v.version_number}`}
+                onClick={() => onDownload(v.storage_key)}
+              >
+                <Download className="size-4" />
+              </Button>
+              {idx !== 0 && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Roll back to version ${v.version_number}`}
+                  loading={rollbackPending}
+                  onClick={() => onRollback(v.id)}
+                >
+                  <RotateCcw className="size-4" />
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

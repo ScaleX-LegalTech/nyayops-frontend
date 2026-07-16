@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
   Briefcase,
@@ -22,7 +22,7 @@ import {
 import { hardDeleteCase, listCases, listDeletedCases, restoreCase } from '@/lib/api/cases'
 import { listBranches } from '@/lib/api/admin'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
-import { CASE_STATUSES, type Case, type CaseStatus } from '@/types'
+import { CASE_STATUSES, type CaseDashboardCard, type CaseStatus } from '@/types'
 import { courtLabel, formatDate, humanize } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
 import { usePermissions } from '@/lib/usePermissions'
@@ -34,7 +34,7 @@ import { Input, Select } from '@/components/ui/Field'
 import { Dialog } from '@/components/ui/Dialog'
 import { PriorityBadge, StatusBadge } from '@/components/ui/Badge'
 import { TableWrap } from '@/components/ui/Table'
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
+import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { CaseWizardDialog } from './CaseWizardDialog'
 import { AssignDialog } from './AssignDialog'
 
@@ -48,7 +48,7 @@ type SortBy = (typeof SORT_OPTIONS)[number]['value']
 
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
 
-function sortCases(cases: Case[], sortBy: SortBy): Case[] {
+function sortCases(cases: CaseDashboardCard[], sortBy: SortBy): CaseDashboardCard[] {
   const list = [...cases]
   switch (sortBy) {
     case 'hearing_asc':
@@ -65,6 +65,7 @@ function sortCases(cases: Case[], sortBy: SortBy): Case[] {
 }
 
 const LONG_PRESS_MS = 500
+const PAGE_SIZE = 30
 
 export default function CasesPage() {
   const navigate = useNavigate()
@@ -89,18 +90,46 @@ export default function CasesPage() {
   const [viewingDeleted, setViewingDeleted] = useState(false)
   const [purging, setPurging] = useState<{ id: string; title: string } | null>(null)
   const longPressTimer = useRef<number | null>(null)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   const filters = useMemo(
     () => ({ query: search || undefined, status: status || undefined }),
     [search, status],
   )
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: qk.cases(filters),
-    queryFn: () => listCases(filters),
+    queryFn: ({ pageParam }) => listCases({ ...filters, limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.has_more ? allPages.reduce((sum, page) => sum + page.items.length, 0) : undefined,
   })
 
-  const cases = useMemo(() => data ?? [], [data])
+  const cases = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
   const sortedCases = useMemo(() => sortCases(cases, sortBy), [cases, sortBy])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '400px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
   const allSelected = cases.length > 0 && selected.length === cases.length
 
   function enterSelection(id: string) {
@@ -363,6 +392,9 @@ export default function CasesPage() {
                 </div>
               )
             })}
+          </div>
+          <div ref={sentinelRef} className="flex justify-center py-4">
+            {isFetchingNextPage && <Spinner />}
           </div>
         </div>
       )}

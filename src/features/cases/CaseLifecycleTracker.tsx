@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { Case, CaseLifecycleStage, DocumentRecord } from '@/types'
+import type { Case, CaseLifecycleStage, DocumentCard } from '@/types'
 import {
   CASE_LIFECYCLE_PARTS,
   FORWARD_TRANSITIONS,
@@ -52,7 +52,7 @@ export function CaseLifecycleTracker({
   onRequestLinkCnr,
 }: {
   c: Case
-  documents: DocumentRecord[]
+  documents: DocumentCard[]
   onRequestFileSuit: () => void
   onRequestLinkCnr: () => void
 }) {

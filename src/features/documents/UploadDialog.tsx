@@ -7,7 +7,7 @@ import {
   createUploadUrl,
   uploadFileBytes,
 } from '@/lib/api/documents'
-import { listCases } from '@/lib/api/cases'
+import { getCase } from '@/lib/api/cases'
 import { qk } from '@/lib/queryKeys'
 import { formatBytes } from '@/lib/format'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { CaseCombobox } from '@/components/ui/CaseCombobox'
 import { DOC_TYPE_OPTIONS } from '@/types'
 
 const OTHER_DOC_TYPE = '__other__'
@@ -58,13 +59,12 @@ export function UploadDialog(props: UploadDialogProps) {
   const [docTypeOther, setDocTypeOther] = useState('')
   const [changeNote, setChangeNote] = useState('')
 
-  const casesQuery = useQuery({
-    queryKey: qk.cases(),
-    queryFn: () => listCases(),
-    enabled: open && mode === 'new',
+  const selectedCaseQuery = useQuery({
+    queryKey: qk.caseDetail(caseId),
+    queryFn: () => getCase(caseId),
+    enabled: !!caseId,
   })
-
-  const selectedCase = casesQuery.data?.find((c) => c.id === caseId)
+  const selectedCase = selectedCaseQuery.data
   const docTypeSuggestions = selectedCase
     ? DOC_TYPE_OPTIONS[selectedCase.lifecycle_stage ?? 'collection']
     : ALL_DOC_TYPE_OPTIONS
@@ -137,21 +137,13 @@ export function UploadDialog(props: UploadDialogProps) {
         {mode === 'new' && (
           <>
             <Field label="Case" required>
-              <Select
+              <CaseCombobox
                 value={caseId}
-                onChange={(e) => setCaseId(e.target.value)}
+                onChange={(option) => setCaseId(option?.id ?? '')}
+                excludeClosed
                 disabled={!!lockedCaseId}
-                required
-              >
-                <option value="">Select a case…</option>
-                {(casesQuery.data ?? [])
-                  .filter((c) => c.status !== 'closed')
-                  .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Search cases…"
+              />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Title" required>
