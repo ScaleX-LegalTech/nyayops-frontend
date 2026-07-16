@@ -13,7 +13,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useFloatingPanel, useOutsideClose } from './useFloatingPanel'
 
@@ -27,6 +27,33 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     return <input ref={ref} className={cn(CONTROL, 'h-10', className)} {...props} />
   },
 )
+
+/** Password <Input> with a show/hide toggle - omit `type`, it's fixed internally. */
+export const PasswordInput = forwardRef<
+  HTMLInputElement,
+  Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>
+>(function PasswordInput({ className, ...props }, ref) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        type={visible ? 'text' : 'password'}
+        className={cn(CONTROL, 'h-10 pr-10', className)}
+        {...props}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-ink-muted hover:text-ink"
+      >
+        {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </div>
+  )
+})
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...props }, ref) {

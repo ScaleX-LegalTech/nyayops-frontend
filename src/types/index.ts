@@ -331,6 +331,11 @@ export interface TenantRegistrationResponse {
   tenant_id: string
   tenant_slug: string
   admin_user_id: string
+  otp_required: boolean
+  otp_token: string | null
+  access_token: string | null
+  refresh_token: string | null
+  token_type: string
 }
 
 export interface DecodedToken {
@@ -514,6 +519,43 @@ export interface AuditLog {
   previous_state: Record<string, unknown> | null
   new_state: Record<string, unknown> | null
   occurred_at: string
+}
+
+export interface Issue {
+  id: string
+  tenant_id: string
+  case_id: string
+  issue_type: string
+  description: string
+  status: 'open' | 'resolved'
+  raised_by: string
+  routed_to: string
+  resolved_by: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+  created_at: string
+}
+
+export interface PaymentMilestone {
+  id: string
+  tenant_id: string
+  case_id: string
+  label: string
+  amount: number | null
+  percentage: number | null
+  due_stage: string | null
+  status: 'requested' | 'reminded' | 'received'
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MyWorkResponse {
+  my_cases: Case[]
+  open_issues: Issue[]
+  upcoming_hearings: Case[]
+  payment_follow_ups: PaymentMilestone[]
+  overdue_cases: Case[]
 }
 
 export interface Notification {

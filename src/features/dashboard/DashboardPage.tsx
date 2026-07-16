@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -23,17 +24,24 @@ import {
   getActivity,
   getCasesByStatus,
   getKpis,
+  getMyWork,
   getOverdueCases,
   getTopCourts,
 } from '@/lib/api/dashboard'
+import { getOrganizationName } from '@/lib/api/organization'
+import { useAuth } from '@/auth/AuthContext'
+import { usePermissions } from '@/lib/usePermissions'
 import { qk } from '@/lib/queryKeys'
 import { humanize, formatDate } from '@/lib/format'
+import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
-import { StatusBadge } from '@/components/ui/Badge'
+import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { EntityAvatar } from '@/components/ui/Avatar'
 import { EmptyState, LoadingState } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
+import type { Case, Issue, PaymentMilestone } from '@/types'
 import type { LucideIcon } from 'lucide-react'
 
 function KpiCard({
@@ -62,7 +70,187 @@ function KpiCard({
   )
 }
 
-export default function DashboardPage() {
+/** Shared row-list card for anything that's fundamentally "a list of cases" - My
+ * Cases, Next Hearings, and Overdue Flags all render this same shape. */
+function CaseListCard({
+  title,
+  description,
+  cases,
+  emptyTitle,
+  emptyDescription,
+  showHearingDate,
+}: {
+  title: string
+  description?: string
+  cases: Case[]
+  emptyTitle: string
+  emptyDescription?: string
+  showHearingDate?: boolean
+}) {
+  return (
+    <Card>
+      <CardHeader
+        title={title}
+        description={description}
+        action={
+          <Link to="/cases" className="text-sm font-medium text-brand hover:text-brand-strong">
+            View all
+          </Link>
+        }
+      />
+      <CardBody className="border-t border-border p-0">
+        {cases.length === 0 ? (
+          <EmptyState title={emptyTitle} description={emptyDescription} />
+        ) : (
+          <div className="divide-y divide-border">
+            {cases.slice(0, 6).map((c) => (
+              <Link
+                key={c.id}
+                to={`/cases/${c.id}`}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
+              >
+                <EntityAvatar label={c.title} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{c.title}</p>
+                  <p className="text-xs text-ink-muted">
+                    {c.client_name}
+                    {showHearingDate && c.hearing_date ? ` · Hearing ${formatDate(c.hearing_date)}` : ''}
+                  </p>
+                </div>
+                <StatusBadge status={c.status} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function IssueListCard({ issues }: { issues: Issue[] }) {
+  return (
+    <Card>
+      <CardHeader
+        title="Open issues needing your action"
+        description="Routed to you, not yet resolved"
+      />
+      <CardBody className="border-t border-border p-0">
+        {issues.length === 0 ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="Nothing waiting on you"
+            description="No open issues are routed to you right now."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {issues.map((issue) => (
+              <Link
+                key={issue.id}
+                to={`/cases/${issue.case_id}`}
+                className="flex items-start gap-3 px-5 py-3 hover:bg-surface-muted"
+              >
+                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-control bg-warning-soft text-warning-strong">
+                  <ClipboardList className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{issue.description}</p>
+                  <p className="text-xs text-ink-muted">{formatDate(issue.created_at)}</p>
+                </div>
+                <Badge>{humanize(issue.issue_type)}</Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function PaymentFollowUpCard({ milestones }: { milestones: PaymentMilestone[] }) {
+  return (
+    <Card>
+      <CardHeader
+        title="Payment follow-ups"
+        description="Fee milestones still awaiting action, on your cases"
+      />
+      <CardBody className="border-t border-border p-0">
+        {milestones.length === 0 ? (
+          <EmptyState
+            icon={IndianRupee}
+            title="Nothing to follow up on"
+            description="No pending fee milestones on your cases."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {milestones.map((m) => (
+              <Link
+                key={m.id}
+                to={`/cases/${m.case_id}`}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-control bg-info-soft text-info-strong">
+                  <IndianRupee className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{m.label}</p>
+                  {m.due_stage && <p className="text-xs text-ink-muted">{m.due_stage}</p>}
+                </div>
+                <Badge>{humanize(m.status)}</Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+/** Personal dashboard - every authenticated user gets this, scoped to exactly what
+ * they created/are assigned to/were routed. No permission required to view it. */
+function MyWorkView() {
+  const myWork = useQuery({ queryKey: qk.myWork, queryFn: getMyWork })
+
+  if (myWork.isLoading) return <LoadingState label="Loading your work…" />
+
+  const data = myWork.data
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <CaseListCard
+          title="My cases"
+          description="Cases you created or are assigned to"
+          cases={data?.my_cases ?? []}
+          emptyTitle="No cases yet"
+          emptyDescription="Cases you create or get assigned to will show up here."
+        />
+        <IssueListCard issues={data?.open_issues ?? []} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <CaseListCard
+          title="Next hearing dates"
+          description="Your upcoming hearings, soonest first"
+          cases={data?.upcoming_hearings ?? []}
+          emptyTitle="No upcoming hearings"
+          showHearingDate
+        />
+        <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} />
+      </div>
+      <CaseListCard
+        title="Overdue flags"
+        description="Past their hearing date and not yet closed"
+        cases={data?.overdue_cases ?? []}
+        emptyTitle="Nothing overdue"
+        emptyDescription="You're on track."
+        showHearingDate
+      />
+    </div>
+  )
+}
+
+/** The aggregate oversight view - unchanged from before, just extracted into its
+ * own component so it mounts (and fetches) only when its tab is actually selected. */
+function OverviewView() {
   const kpis = useQuery({ queryKey: qk.kpis, queryFn: getKpis })
   const byStatus = useQuery({ queryKey: qk.casesByStatus, queryFn: getCasesByStatus })
   const topCourts = useQuery({ queryKey: qk.topCourts, queryFn: getTopCourts })
@@ -81,9 +269,7 @@ export default function DashboardPage() {
   }))
 
   return (
-    <div className="animate-rise">
-      <PageHeader title="Dashboard" description="A pulse on your firm's casework today." />
-
+    <div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard
           icon={Briefcase}
@@ -205,41 +391,14 @@ export default function DashboardPage() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Overdue cases"
-            description="Past their hearing date and not yet closed"
-            action={
-              <Link to="/cases" className="text-sm font-medium text-brand hover:text-brand-strong">
-                View all
-              </Link>
-            }
-          />
-          <CardBody className="border-t border-border p-0">
-            {(overdue.data ?? []).length === 0 ? (
-              <EmptyState title="Nothing overdue" description="Your team is on track." />
-            ) : (
-              <div className="divide-y divide-border">
-                {(overdue.data ?? []).slice(0, 6).map((c) => (
-                  <Link
-                    key={c.id}
-                    to={`/cases/${c.id}`}
-                    className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
-                  >
-                    <EntityAvatar label={c.title} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{c.title}</p>
-                      <p className="text-xs text-ink-muted">
-                        {c.client_name} · Hearing {formatDate(c.hearing_date)}
-                      </p>
-                    </div>
-                    <StatusBadge status={c.status} />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <CaseListCard
+          title="Overdue cases"
+          description="Past their hearing date and not yet closed"
+          cases={overdue.data ?? []}
+          emptyTitle="Nothing overdue"
+          emptyDescription="Your team is on track."
+          showHearingDate
+        />
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
@@ -249,7 +408,7 @@ export default function DashboardPage() {
             <EmptyState
               icon={ClipboardList}
               title="Not tracked yet"
-              description="Issue threads (advocate → associate escalation) aren't built on the backend yet — this snapshot will populate once that lands."
+              description="This aggregate snapshot isn't wired up yet - see My Work for issues routed to you individually."
             />
           </CardBody>
         </Card>
@@ -260,11 +419,73 @@ export default function DashboardPage() {
             <EmptyState
               icon={IndianRupee}
               title="Not tracked yet"
-              description="Fee milestones and payment status (Requested → Reminded → Received) aren't built on the backend yet — this snapshot will populate once that lands."
+              description="This aggregate snapshot isn't wired up yet - see My Work for payment follow-ups on your own cases."
             />
           </CardBody>
         </Card>
       </div>
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  const { hasPermission } = usePermissions()
+  const { isManagingDirector } = useAuth()
+  const canSeeOverview = hasPermission('reports', 'read')
+  const [tab, setTab] = useState<'my-work' | 'overview'>(canSeeOverview ? 'overview' : 'my-work')
+
+  const orgName = useQuery({
+    queryKey: qk.organizationName,
+    queryFn: getOrganizationName,
+    enabled: canSeeOverview && isManagingDirector,
+  })
+  const overviewLabel = isManagingDirector
+    ? orgName.data?.name
+      ? `${orgName.data.name} Overview`
+      : 'Firm Overview'
+    : 'Branch Overview'
+
+  return (
+    <div className="animate-rise">
+      <PageHeader
+        title="Dashboard"
+        description="A pulse on your firm's casework today."
+        actions={
+          <div className="flex items-center gap-2">
+            {canSeeOverview && (
+              <div className="inline-flex rounded-control border border-border-strong bg-surface p-0.5" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'my-work'}
+                  onClick={() => setTab('my-work')}
+                  className={cn(
+                    'rounded-control px-3 py-1.5 text-sm font-medium transition-colors',
+                    tab === 'my-work' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink',
+                  )}
+                >
+                  My Work
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'overview'}
+                  onClick={() => setTab('overview')}
+                  className={cn(
+                    'rounded-control px-3 py-1.5 text-sm font-medium transition-colors',
+                    tab === 'overview' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink',
+                  )}
+                >
+                  {overviewLabel}
+                </button>
+              </div>
+            )}
+            <GlobalSearch />
+          </div>
+        }
+      />
+
+      {tab === 'my-work' || !canSeeOverview ? <MyWorkView /> : <OverviewView />}
     </div>
   )
 }

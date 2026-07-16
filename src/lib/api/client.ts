@@ -24,12 +24,31 @@ function emitLogout(): void {
   window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT))
 }
 
+/** FastAPI's default 422 shape: { detail: [{ loc: ['body', 'field'], msg, type }, ...] }. */
+function describeValidationErrors(issues: unknown[]): string {
+  return issues
+    .map((issue) => {
+      if (typeof issue !== 'object' || issue === null) return String(issue)
+      const { loc, msg } = issue as { loc?: unknown[]; msg?: string }
+      const field = Array.isArray(loc) ? String(loc[loc.length - 1]) : undefined
+      const label = field ? field.replace(/_/g, ' ') : undefined
+      return label && msg ? `${label}: ${msg}` : (msg ?? JSON.stringify(issue))
+    })
+    .join('; ')
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   let detail = response.statusText
   let code: string | undefined
   try {
     const body = await response.json()
-    detail = body.detail ?? JSON.stringify(body)
+    if (typeof body.detail === 'string') {
+      detail = body.detail
+    } else if (Array.isArray(body.detail)) {
+      detail = describeValidationErrors(body.detail)
+    } else if (body.detail) {
+      detail = JSON.stringify(body.detail)
+    }
     code = body.code
   } catch {
     // no JSON body

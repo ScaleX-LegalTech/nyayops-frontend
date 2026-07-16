@@ -8,6 +8,7 @@ export const qk = {
   topCourts: ['dashboard', 'top-courts'] as const,
   activity: ['dashboard', 'activity'] as const,
   overdue: ['dashboard', 'overdue'] as const,
+  myWork: ['dashboard', 'my-work'] as const,
   cases: (filters: CaseSearchFilters = {}) => ['cases', 'list', filters] as const,
   caseDetail: (id: string) => ['cases', 'detail', id] as const,
   caseFullDetails: (id: string) => ['cases', 'full-details', id] as const,
@@ -31,6 +32,7 @@ export const qk = {
   organization: ['organization'] as const,
   organizationName: ['organization', 'name'] as const,
   branchAdmins: ['branch-admins'] as const,
+  globalSearch: (q: string) => ['search', q] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
