@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { loginOtp } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, PasswordInput } from '@/components/ui/Field'
 import { AuthLayout } from './AuthLayout'
 
 export default function VerifyOtpPage() {
@@ -62,7 +62,7 @@ export default function VerifyOtpPage() {
       </div>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Verification code" htmlFor="code">
-          <Input
+          <PasswordInput
             id="code"
             inputMode="numeric"
             autoComplete="one-time-code"

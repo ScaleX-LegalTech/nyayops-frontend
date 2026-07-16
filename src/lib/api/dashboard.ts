@@ -3,6 +3,7 @@ import type {
   Case,
   CasesByStatus,
   DashboardKpis,
+  MyWorkResponse,
   TopCourtMetric,
 } from '@/types'
 import { get } from './client'
@@ -25,4 +26,8 @@ export function getActivity(): Promise<ActivityMetrics> {
 
 export function getOverdueCases(): Promise<Case[]> {
   return get<Case[]>('/dashboard/overdue')
+}
+
+export function getMyWork(): Promise<MyWorkResponse> {
+  return get<MyWorkResponse>('/dashboard/my-work')
 }

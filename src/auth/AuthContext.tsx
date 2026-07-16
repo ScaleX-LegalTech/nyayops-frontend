@@ -11,7 +11,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AUTH_LOGOUT_EVENT } from '@/lib/api/client'
 import { clearTokens, getAccessToken, setDeviceToken, setTokens } from '@/lib/api/tokens'
 import { decodeToken, isTokenExpired } from '@/lib/jwt'
-import type { DecodedToken, LoginResponse } from '@/types'
+import type { DecodedToken } from '@/types'
+
+/** What setSession actually needs - satisfied by both LoginResponse (post-MFA/OTP
+ * login) and TenantRegistrationResponse (auto-login right after registering). */
+interface SessionTokens {
+  access_token: string | null
+  refresh_token: string | null
+  device_token?: string | null
+}
 
 interface AuthContextValue {
   user: DecodedToken | null
@@ -21,8 +29,8 @@ interface AuthContextValue {
   /** Admin scoped to their own branch only. */
   isBranchAdmin: boolean
   branchId: string | null
-  /** Persist tokens from a successful (second-step) login response. */
-  setSession: (response: LoginResponse) => void
+  /** Persist tokens from a successful login or registration response. */
+  setSession: (response: SessionTokens) => void
   logout: () => void
 }
 
@@ -43,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
-  const setSession = useCallback((response: LoginResponse) => {
+  const setSession = useCallback((response: SessionTokens) => {
     setTokens(response.access_token, response.refresh_token)
     if (response.device_token) setDeviceToken(response.device_token)
     setToken(response.access_token)

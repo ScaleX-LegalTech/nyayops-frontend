@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { login, loginMfa, loginOtp, requestMfaEmailFallback } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, Input, PasswordInput } from '@/components/ui/Field'
 import { AuthLayout } from './AuthLayout'
 
 export default function LoginPage() {
@@ -126,7 +126,7 @@ export default function LoginPage() {
         </div>
         <form onSubmit={isMfa ? submitMfa : submitOtp} className="space-y-4">
           <Field label="Verification code" htmlFor="code">
-            <Input
+            <PasswordInput
               id="code"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -186,9 +186,8 @@ export default function LoginPage() {
           />
         </Field>
         <Field label="Password" htmlFor="password">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             placeholder="••••••••••"
             value={password}

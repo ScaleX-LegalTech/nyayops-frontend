@@ -4,7 +4,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { acceptInvite } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, PasswordInput } from '@/components/ui/Field'
 import { AuthLayout } from './AuthLayout'
 
 export default function AcceptInvitePage() {
@@ -64,9 +64,8 @@ export default function AcceptInvitePage() {
       </div>
       <form onSubmit={submit} className="space-y-4">
         <Field label="New password" htmlFor="password" hint="At least 10 characters.">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoFocus
             autoComplete="new-password"
             placeholder="••••••••••"
@@ -77,9 +76,8 @@ export default function AcceptInvitePage() {
           />
         </Field>
         <Field label="Confirm password" htmlFor="confirmPassword">
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             autoComplete="new-password"
             placeholder="••••••••••"
             value={confirmPassword}

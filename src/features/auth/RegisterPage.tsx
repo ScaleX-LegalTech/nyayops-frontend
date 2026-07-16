@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2 } from 'lucide-react'
-import { registerTenant } from '@/lib/api/auth'
+import { ArrowLeft, ShieldCheck } from 'lucide-react'
+import { loginOtp, registerTenant } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
+import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, Input, PasswordInput } from '@/components/ui/Field'
 import { AuthLayout } from './AuthLayout'
 
 function slugify(value: string): string {
@@ -17,15 +18,18 @@ function slugify(value: string): string {
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const { setSession } = useAuth()
+  const [step, setStep] = useState<'details' | 'otp'>('details')
   const [orgName, setOrgName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
   const [adminName, setAdminName] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [otpToken, setOtpToken] = useState('')
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [doneSlug, setDoneSlug] = useState<string | null>(null)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -39,7 +43,13 @@ export default function RegisterPage() {
         admin_email: adminEmail,
         admin_password: password,
       })
-      setDoneSlug(res.tenant_slug)
+      if (res.otp_required && res.otp_token) {
+        setOtpToken(res.otp_token)
+        setStep('otp')
+      } else {
+        setSession(res)
+        navigate('/dashboard', { replace: true })
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed.')
     } finally {
@@ -47,23 +57,65 @@ export default function RegisterPage() {
     }
   }
 
-  if (doneSlug) {
+  async function submitOtp(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await loginOtp(otpToken, code)
+      setSession(res)
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Invalid or expired verification code.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (step === 'otp') {
     return (
       <AuthLayout>
-        <div className="text-center">
-          <span className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-success-soft text-success">
-            <CheckCircle2 className="size-7" />
+        <button
+          onClick={() => {
+            setStep('details')
+            setCode('')
+            setError(null)
+          }}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
+        >
+          <ArrowLeft className="size-4" /> Back
+        </button>
+        <div className="mb-6 flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-control bg-brand-soft text-brand">
+            <ShieldCheck className="size-5" />
           </span>
-          <h1 className="font-display text-2xl font-semibold text-ink">Organization created</h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            Your workspace slug is{' '}
-            <span className="font-mono font-medium text-ink">{doneSlug}</span>. Use it with your
-            admin email to sign in.
-          </p>
-          <Button size="lg" className="mt-6 w-full justify-center" onClick={() => navigate('/login')}>
-            Continue to sign in
-          </Button>
+          <div>
+            <h1 className="font-display text-2xl font-semibold text-ink">Verify your email</h1>
+            <p className="text-sm text-ink-muted">
+              We emailed a code to <span className="font-medium text-ink">{adminEmail}</span> to
+              confirm it's really you.
+            </p>
+          </div>
         </div>
+        <form onSubmit={submitOtp} className="space-y-4">
+          <Field label="Verification code" htmlFor="code">
+            <PasswordInput
+              id="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              className="text-center font-mono text-lg tracking-[0.4em]"
+            />
+          </Field>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button type="submit" size="lg" loading={loading} className="w-full justify-center">
+            Verify & create organization
+          </Button>
+        </form>
       </AuthLayout>
     )
   }
@@ -124,9 +176,8 @@ export default function RegisterPage() {
           />
         </Field>
         <Field label="Password" htmlFor="pw" hint="At least 10 characters.">
-          <Input
+          <PasswordInput
             id="pw"
-            type="password"
             placeholder="••••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
