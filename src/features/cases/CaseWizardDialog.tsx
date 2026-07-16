@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/auth/AuthContext'
 import { assignCase, createCase } from '@/lib/api/cases'
+import { listBranches } from '@/lib/api/admin'
+import { qk } from '@/lib/queryKeys'
 import { invalidateCaseScopes } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
@@ -28,6 +31,7 @@ export function CaseWizardDialog({
 }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { isManagingDirector } = useAuth()
 
   const [step, setStep] = useState<1 | 2>(1)
   const [caseRecord, setCaseRecord] = useState<Case | null>(null)
@@ -37,6 +41,16 @@ export function CaseWizardDialog({
   const [clientName, setClientName] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('medium')
+  const [branchId, setBranchId] = useState('')
+
+  // Only the MD has no branch of their own - every case must belong to one
+  // (backend rejects a branch-less create), so the MD picks it here; everyone
+  // else's own branch is used automatically server-side.
+  const branchesQuery = useQuery({
+    queryKey: qk.branches,
+    queryFn: listBranches,
+    enabled: isManagingDirector && open,
+  })
 
   // Step 2
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([])
@@ -48,6 +62,7 @@ export function CaseWizardDialog({
     setClientName('')
     setDescription('')
     setPriority('medium')
+    setBranchId('')
     setAssignedUserIds([])
   }
 
@@ -57,7 +72,14 @@ export function CaseWizardDialog({
   }
 
   const step1Mutation = useMutationWithToast({
-    mutationFn: () => createCase({ title, client_name: clientName, description: description || null, priority }),
+    mutationFn: () =>
+      createCase({
+        title,
+        client_name: clientName,
+        description: description || null,
+        priority,
+        branch_id: isManagingDirector ? branchId : undefined,
+      }),
     onSuccess: (created) => {
       setCaseRecord(created)
       setStep(2)
@@ -102,7 +124,9 @@ export function CaseWizardDialog({
               type="submit"
               form="wizard-step1"
               loading={step1Mutation.isPending}
-              disabled={!title.trim() || !clientName.trim()}
+              disabled={
+                !title.trim() || !clientName.trim() || (isManagingDirector && !branchId)
+              }
             >
               Next
             </Button>
@@ -158,6 +182,30 @@ export function CaseWizardDialog({
               ))}
             </Select>
           </Field>
+          {isManagingDirector && (
+            <Field
+              label="Branch"
+              required
+              htmlFor="wiz-branch"
+              hint="Every case belongs to a branch — pick which one this one is for."
+            >
+              <Select
+                id="wiz-branch"
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  {branchesQuery.isLoading ? 'Loading branches…' : 'Select a branch'}
+                </option>
+                {branchesQuery.data?.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </form>
       )}
 
