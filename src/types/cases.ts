@@ -72,10 +72,11 @@ export const GATED_LIFECYCLE_STAGES: CaseLifecycleStage[] = ['filed', 'cnr_linke
 
 /** Mirrors REQUIRED_DOC_TYPE_FOR in domain/case_fsm.py - the one curated document type
  * that must be on file before leaving each stage going forward. Backward moves are
- * never gated by this. Only Collection and Research & Draft are actually gated - a
- * missing key here just means that stage isn't enforced. */
+ * never gated by this. Collection, Scrutiny, and Research & Draft are gated - a missing
+ * key here just means that stage isn't enforced. */
 export const REQUIRED_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
   collection: 'collection_document',
+  scrutiny: 'scrutiny_report',
   research_draft: 'research_draft_document',
 }
 
@@ -84,7 +85,6 @@ export const REQUIRED_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> 
  * gentle "you sure?" nudge for before moving on, since it's not been enforced yet in
  * practice. Purely a frontend UX prompt - not mirrored by anything backend-side. */
 export const OPTIONAL_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
-  scrutiny: 'scrutiny_report',
   filed: 'filing_document',
   cnr_linked: 'filing_document',
   hearing: 'hearing_report',

@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { UploadDialog } from '@/features/documents/UploadDialog'
 import type { DocumentCard } from '@/types'
 
 export function FileSuitDialog({
@@ -19,12 +20,12 @@ export function FileSuitDialog({
   open: boolean
   onClose: () => void
   caseId: string
-  /** For the "no scrutiny report on file yet" nudge below - not enforced, just a
-   * heads-up (see OPTIONAL_DOC_TYPE_FOR). Optional prop so existing call sites
-   * that don't have this handy don't need to change. */
+  /** Scrutiny requires a scrutiny_report on file before the suit can be filed -
+   * see REQUIRED_DOC_TYPE_FOR (domain/case_fsm.py enforces the same). */
   documents?: DocumentCard[]
 }) {
   const missingScrutinyReport = !documents.some((d) => d.doc_type === 'scrutiny_report')
+  const [uploading, setUploading] = useState(false)
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [caseType, setCaseType] = useState('')
@@ -83,7 +84,12 @@ export function FileSuitDialog({
             type="submit"
             form="file-suit-form"
             loading={mutation.isPending}
-            disabled={!caseType.trim() || !courtJurisdiction.trim() || !region.trim()}
+            disabled={
+              !caseType.trim() ||
+              !courtJurisdiction.trim() ||
+              !region.trim() ||
+              missingScrutinyReport
+            }
           >
             Save
           </Button>
@@ -99,10 +105,12 @@ export function FileSuitDialog({
         className="space-y-4"
       >
         {missingScrutinyReport && (
-          <p className="rounded-control border border-dashed border-border bg-surface-muted px-3 py-2 text-xs text-ink-muted">
-            No scrutiny report on file yet — you can still file, or upload one from the case page
-            first.
-          </p>
+          <div className="flex items-center justify-between gap-3 rounded-control border border-dashed border-border bg-surface-muted px-3 py-2 text-xs text-ink-muted">
+            <span>No scrutiny report on file yet — upload one before filing.</span>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setUploading(true)}>
+              Upload
+            </Button>
+          </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Case type" required>
@@ -143,6 +151,10 @@ export function FileSuitDialog({
           have it.
         </p>
       </form>
+
+      {uploading && (
+        <UploadDialog mode="new" caseId={caseId} open onClose={() => setUploading(false)} />
+      )}
     </Dialog>
   )
 }
