@@ -84,8 +84,9 @@ export function Badge({ tone = 'neutral', children, className, dot }: BadgeProps
 
 /** Icon-anchored colored capsule — the one status pattern in this system. Every tone
  * gets a fill + icon so status/priority reads at a glance in a dense list, not just
- * the critical ones. */
-function Capsule({ tone, icon: Icon, children }: { tone: Tone; icon: typeof AlertTriangle; children: ReactNode }) {
+ * the critical ones. Exported for one-off status-like indicators (e.g. an "Action
+ * required" flag) that don't warrant their own Status/PriorityBadge-style wrapper. */
+export function Capsule({ tone, icon: Icon, children }: { tone: Tone; icon: typeof AlertTriangle; children: ReactNode }) {
   return (
     <span
       className={cn(

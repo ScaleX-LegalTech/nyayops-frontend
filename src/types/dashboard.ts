@@ -5,6 +5,7 @@ export interface DashboardKpis {
   associate_activity: number
   overdue_cases: number
   pending_reviews: number
+  scrutiny_action_required: number
 }
 
 export interface CasesByStatus {

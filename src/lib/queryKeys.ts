@@ -8,6 +8,7 @@ export const qk = {
   topCourts: ['dashboard', 'top-courts'] as const,
   activity: ['dashboard', 'activity'] as const,
   overdue: ['dashboard', 'overdue'] as const,
+  scrutinyActionRequired: ['dashboard', 'scrutiny-action-required'] as const,
   myWork: ['dashboard', 'my-work'] as const,
   cases: (filters: CaseSearchFilters = {}) => ['cases', 'list', filters] as const,
   caseOptions: (filters: CaseSearchFilters = {}) => ['cases', 'options', filters] as const,

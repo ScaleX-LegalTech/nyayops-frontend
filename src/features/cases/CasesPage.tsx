@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   Archive,
   Briefcase,
   CalendarDays,
@@ -32,7 +33,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { Dialog } from '@/components/ui/Dialog'
-import { PriorityBadge, StatusBadge } from '@/components/ui/Badge'
+import { Capsule, PriorityBadge, StatusBadge } from '@/components/ui/Badge'
 import { TableWrap } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { CaseWizardDialog } from './CaseWizardDialog'
@@ -343,6 +344,11 @@ export default function CasesPage() {
                       <StatusBadge status={c.status} />
                       <span className="text-ink-faint">·</span>
                       <PriorityBadge priority={c.priority} />
+                      {c.scrutiny_review_status === 'rejected' && (
+                        <Capsule tone="danger" icon={AlertTriangle}>
+                          Action required
+                        </Capsule>
+                      )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
                       <span className="inline-flex items-center gap-1">

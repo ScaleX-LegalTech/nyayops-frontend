@@ -7,16 +7,23 @@ import { useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
+import type { DocumentCard } from '@/types'
 
 export function LinkCnrDialog({
   open,
   onClose,
   caseId,
+  documents = [],
 }: {
   open: boolean
   onClose: () => void
   caseId: string
+  /** For the "no filing document on file yet" nudge below - not enforced, just a
+   * heads-up (see OPTIONAL_DOC_TYPE_FOR). Optional prop so existing call sites
+   * that don't have this handy don't need to change. */
+  documents?: DocumentCard[]
 }) {
+  const missingFilingDocument = !documents.some((d) => d.doc_type === 'filing_document')
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [cnr, setCnr] = useState('')
@@ -80,6 +87,12 @@ export function LinkCnrDialog({
         }}
         className="space-y-4"
       >
+        {missingFilingDocument && (
+          <p className="rounded-control border border-dashed border-border bg-surface-muted px-3 py-2 text-xs text-ink-muted">
+            No filing document on file yet — you can still link the CNR, or upload one from the
+            case page first.
+          </p>
+        )}
         <Field label="CNR number" required>
           <Input
             value={cnr}

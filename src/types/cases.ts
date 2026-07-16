@@ -72,13 +72,21 @@ export const GATED_LIFECYCLE_STAGES: CaseLifecycleStage[] = ['filed', 'cnr_linke
 
 /** Mirrors REQUIRED_DOC_TYPE_FOR in domain/case_fsm.py - the one curated document type
  * that must be on file before leaving each stage going forward. Backward moves are
- * never gated by this. */
+ * never gated by this. Collection, Scrutiny, and Research & Draft are gated - a missing
+ * key here just means that stage isn't enforced. */
 export const REQUIRED_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
   collection: 'collection_document',
   scrutiny: 'scrutiny_report',
+  research_draft: 'research_draft_document',
+}
+
+/** The curated document type each of these stages used to hard-require (now backend-
+ * ungated - see REQUIRED_DOC_TYPE_FOR above/domain/case_fsm.py) but is still worth a
+ * gentle "you sure?" nudge for before moving on, since it's not been enforced yet in
+ * practice. Purely a frontend UX prompt - not mirrored by anything backend-side. */
+export const OPTIONAL_DOC_TYPE_FOR: Partial<Record<CaseLifecycleStage, string>> = {
   filed: 'filing_document',
   cnr_linked: 'filing_document',
-  research_draft: 'research_draft_document',
   hearing: 'hearing_report',
 }
 
@@ -162,6 +170,14 @@ export interface Case {
   approved_at: string | null
   rejected_by: string | null
   rejected_at: string | null
+  // Scrutiny-stage approval - distinct from the reviewed/approved/rejected trail
+  // above (the overall case-status review flow). null until someone with
+  // cases:approve_scrutiny acts on it; cleared back to null whenever a fresh
+  // scrutiny_report is uploaded (a corrected document needs a fresh look).
+  scrutiny_review_status: 'approved' | 'rejected' | null
+  scrutiny_reviewed_by: string | null
+  scrutiny_reviewed_at: string | null
+  scrutiny_rejection_reason: string | null
   comments: CaseComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
@@ -325,6 +341,7 @@ export interface CaseDashboardCard {
   priority: string
   status: CaseStatus
   lifecycle_stage: CaseLifecycleStage | null
+  scrutiny_review_status: 'approved' | 'rejected' | null
   assignee_names: string[]
   created_at: string
 }

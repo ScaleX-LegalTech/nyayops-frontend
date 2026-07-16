@@ -61,6 +61,14 @@ export function addCaseDetails(
   return patch<CaseDetailsResponse>(`/cases/${caseId}/details`, payload)
 }
 
+export function approveScrutiny(caseId: string): Promise<Case> {
+  return post<Case>(`/cases/${caseId}/scrutiny/approve`, {})
+}
+
+export function rejectScrutiny(caseId: string, reason: string): Promise<Case> {
+  return post<Case>(`/cases/${caseId}/scrutiny/reject`, { reason })
+}
+
 export function linkCaseCnr(
   caseId: string,
   payload: CaseCnrLinkRequest,
