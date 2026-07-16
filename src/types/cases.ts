@@ -175,6 +175,9 @@ export interface CaseCreateRequest {
   description?: string | null
   priority?: string
   assigned_user_ids?: string[]
+  // Required unless the creator has their own branch (the backend rejects a
+  // branch-less create otherwise) - only a Managing Director needs to supply this.
+  branch_id?: string | null
 }
 
 export interface CaseDetailsRequest {
