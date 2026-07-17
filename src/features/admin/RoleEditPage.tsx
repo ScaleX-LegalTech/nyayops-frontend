@@ -42,6 +42,8 @@ export default function RoleEditPage() {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [namePrefix, setNamePrefix] = useState('')
+  const [nameSuffix, setNameSuffix] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [preview, setPreview] = useState<RolePreviewResponse | null>(null)
 
@@ -53,6 +55,8 @@ export default function RoleEditPage() {
     setHydratedFor(role.id)
     setName(role.name)
     setDescription(role.description ?? '')
+    setNamePrefix(role.name_prefix ?? '')
+    setNameSuffix(role.name_suffix ?? '')
     setSelected(new Set(role.permissions.map(keyOf)))
   }
 
@@ -84,7 +88,13 @@ export default function RoleEditPage() {
 
   const save = useMutationWithToast({
     mutationFn: () => {
-      const payload = { name, description: description || undefined, permissions: chosen }
+      const payload = {
+        name,
+        description: description || undefined,
+        name_prefix: namePrefix || null,
+        name_suffix: nameSuffix || null,
+        permissions: chosen,
+      }
       return role ? updateRole(role.id, payload) : createRole(payload)
     },
     onSuccess: () => {
@@ -118,6 +128,12 @@ export default function RoleEditPage() {
             </Field>
             <Field label="Description">
               <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+            <Field label="Name prefix" hint='Shown before names, e.g. "Adv."'>
+              <Input value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
+            </Field>
+            <Field label="Name suffix" hint='Shown after names, e.g. "(Manager)"'>
+              <Input value={nameSuffix} onChange={(e) => setNameSuffix(e.target.value)} />
             </Field>
           </div>
 

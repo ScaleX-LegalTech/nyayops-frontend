@@ -54,7 +54,7 @@ product deliberately avoids generic AI-dashboard/SaaS-gradient aesthetics.
 | `src/lib/api/` | One file per backend resource, wraps `client.ts` | Any UI rendering |
 | `src/auth/` | Auth context + route guarding | Token *storage* mechanics (that's `lib/api/tokens.ts`) |
 | `src/components/ui/` | Design-system primitives, no business logic | Feature-specific composition |
-| `src/lib/` (root files) | Cross-cutting utilities: `queryKeys.ts`, `jwt.ts`, `cn.ts`, `format.ts`, `chartColors.ts`, `queryClient.ts` | — |
+| `src/lib/` (root files) | Cross-cutting utilities: `queryKeys.ts`, `jwt.ts`, `cn.ts`, `format.ts`, `formatName.ts`, `chartColors.ts`, `queryClient.ts` | — |
 
 ## Coding conventions
 
@@ -62,6 +62,11 @@ product deliberately avoids generic AI-dashboard/SaaS-gradient aesthetics.
   component library.
 - All network access funnels through `apiFetch`/`get`/`post`/`patch`/`put`/`del`/`getBlob` in
   `lib/api/client.ts` — no raw `fetch()` calls inside `src/features/`.
+- Rendering a person's name: use `displayName()` from `lib/formatName.ts` (wraps `full_name` with
+  the admin-set `name_prefix`/`name_suffix`), not raw `user.full_name`/`person.full_name`. The one
+  exception is @mention text insertion/matching (`lib/mentions.ts`, `MentionTextarea.tsx`'s `pick()`)
+  — that protocol keys on the literal `full_name` string embedded in stored comment text and must
+  not be reformatted.
 - `src/lib/queryKeys.ts` centralizes cache keys (`qk` object, literal tuples or factory functions)
   — add new keys there, don't inline ad hoc key arrays at call sites. `CASE_SCOPES` +
   `invalidateCaseScopes(queryClient)` gives one-call broad invalidation after case mutations —

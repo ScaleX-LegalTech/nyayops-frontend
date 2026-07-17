@@ -5,6 +5,8 @@ export interface User {
   full_name: string
   phone: string | null
   bio: string | null
+  name_prefix: string | null
+  name_suffix: string | null
   is_org_admin: boolean
   is_branch_admin: boolean
   is_active: boolean
@@ -77,6 +79,8 @@ export interface Role {
   id: string
   name: string
   description: string | null
+  name_prefix: string | null
+  name_suffix: string | null
   permissions: Permission[]
 }
 

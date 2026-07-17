@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getCasePeople } from '@/lib/api/cases'
+import { displayName } from '@/lib/formatName'
 import { qk } from '@/lib/queryKeys'
 import type { CasePerson } from '@/types'
 
@@ -19,7 +20,10 @@ export function useCasePeople(caseId: string) {
   const people = useMemo(() => query.data ?? [], [query.data])
   const map = useMemo(() => new Map<string, CasePerson>(people.map((p) => [p.id, p])), [people])
 
-  const nameOf = (id: string) => map.get(id)?.full_name
+  const nameOf = (id: string) => {
+    const person = map.get(id)
+    return person ? displayName(person) : undefined
+  }
 
   return { people, map, nameOf }
 }

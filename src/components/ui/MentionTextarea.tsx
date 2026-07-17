@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Textarea } from './Field'
 import { useFloatingPanel, useOutsideClose } from './useFloatingPanel'
 import { cn } from '@/lib/cn'
+import { displayName } from '@/lib/formatName'
 import type { CasePerson } from '@/types'
 
 interface MentionTextareaProps {
@@ -121,7 +122,7 @@ export function MentionTextarea({
                   i === highlighted ? 'bg-surface-muted' : 'hover:bg-surface-muted',
                 )}
               >
-                <span className="font-medium text-ink">{u.full_name}</span>
+                <span className="font-medium text-ink">{displayName(u)}</span>
                 <span className="text-xs text-ink-faint">{u.email}</span>
               </button>
             ))}

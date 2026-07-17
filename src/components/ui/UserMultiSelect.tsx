@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAssignablePeople } from '@/lib/api/cases'
 import { qk } from '@/lib/queryKeys'
 import { cn } from '@/lib/cn'
+import { displayName } from '@/lib/formatName'
 import { PersonAvatar } from '@/components/ui/Avatar'
 import { Input } from '@/components/ui/Field'
 
@@ -83,7 +84,7 @@ export function UserMultiSelect({ caseIds, selected, onChange, emptyHint }: User
                 <PersonAvatar label={u.full_name} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">
-                    {u.full_name}
+                    {displayName(u)}
                   </span>
                   <span className="block truncate text-xs text-ink-muted">{u.email}</span>
                 </span>

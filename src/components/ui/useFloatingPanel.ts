@@ -77,13 +77,22 @@ export function useFloatingPanel<Trigger extends HTMLElement, Panel extends HTML
  * counts as "inside" (trigger + portaled panel — they aren't DOM-nested once
  * portaled, so a single containment check on one of them isn't enough). */
 export function useOutsideClose(open: boolean, refs: RefObject<HTMLElement | null>[], onClose: () => void) {
+  // Callers pass an inline `() => setOpen(false)`, a new function every render -
+  // keeping it out of the effect deps (via this ref) means the listeners are only
+  // torn down and re-registered when `open` actually flips, not on every unrelated
+  // re-render of the parent.
+  const onCloseRef = useRef(onClose)
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useLayoutEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent) => {
-      if (refs.every((r) => r.current && !r.current.contains(e.target as Node))) onClose()
+      if (refs.every((r) => r.current && !r.current.contains(e.target as Node))) onCloseRef.current()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
@@ -92,5 +101,5 @@ export function useOutsideClose(open: boolean, refs: RefObject<HTMLElement | nul
       document.removeEventListener('keydown', onKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, onClose])
+  }, [open])
 }

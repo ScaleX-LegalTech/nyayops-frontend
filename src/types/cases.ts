@@ -367,4 +367,6 @@ export interface CasePerson {
   id: string
   full_name: string
   email: string
+  name_prefix: string | null
+  name_suffix: string | null
 }
