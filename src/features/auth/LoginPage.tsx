@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
-import { login, loginMfa, loginOtp, requestMfaEmailFallback } from '@/lib/api/auth'
+import { getAuthConfig, login, loginMfa, loginOtp, requestMfaEmailFallback } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
+import { qk } from '@/lib/queryKeys'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, PasswordInput } from '@/components/ui/Field'
 import { AuthLayout } from './AuthLayout'
@@ -13,6 +15,10 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
+  // Undefined while loading - default to showing the fallback until we know
+  // otherwise, since hiding it needs a confirmed "disabled", not an absence of data.
+  const { data: authConfig } = useQuery({ queryKey: qk.authConfig, queryFn: getAuthConfig })
+  const emailFallbackAvailable = authConfig?.otp_email_enabled !== false
 
   const [step, setStep] = useState<'credentials' | 'mfa' | 'otp'>('credentials')
   const [tenantSlug, setTenantSlug] = useState('')
@@ -142,7 +148,7 @@ export default function LoginPage() {
           <Button type="submit" size="lg" loading={loading} className="w-full justify-center">
             Verify & sign in
           </Button>
-          {isMfa && (
+          {isMfa && emailFallbackAvailable && (
             <button
               type="button"
               onClick={useEmailFallback}
@@ -151,6 +157,11 @@ export default function LoginPage() {
             >
               Can't access your authenticator? Email me a code instead.
             </button>
+          )}
+          {isMfa && !emailFallbackAvailable && (
+            <p className="text-center text-sm text-ink-muted">
+              Can't access your authenticator? Contact your administrator.
+            </p>
           )}
         </form>
       </AuthLayout>

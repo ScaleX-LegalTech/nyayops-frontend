@@ -25,6 +25,10 @@ export interface TenantRegistrationResponse {
   token_type: string
 }
 
+export interface AuthConfig {
+  otp_email_enabled: boolean
+}
+
 export interface DecodedToken {
   sub: string
   tid: string
