@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { ProtectedRoute, RequireManagingDirector } from '@/auth/ProtectedRoute'
+import { ProtectedRoute, RequireManagingDirector, RequireManageRoles } from '@/auth/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 
 const page = (loader: () => Promise<{ default: React.ComponentType }>) => ({
@@ -46,8 +46,13 @@ export const router = createBrowserRouter([
             children: [
               { index: true, ...page(() => import('@/features/settings/SettingsOverviewPage')) },
               { path: 'roles', ...page(() => import('@/features/admin/RolesPage')) },
-              { path: 'roles/new', ...page(() => import('@/features/admin/RoleEditPage')) },
-              { path: 'roles/:roleId', ...page(() => import('@/features/admin/RoleEditPage')) },
+              {
+                element: <RequireManageRoles />,
+                children: [
+                  { path: 'roles/new', ...page(() => import('@/features/admin/RoleEditPage')) },
+                  { path: 'roles/:roleId', ...page(() => import('@/features/admin/RoleEditPage')) },
+                ],
+              },
               {
                 element: <RequireManagingDirector />,
                 children: [

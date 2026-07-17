@@ -45,6 +45,8 @@ export interface InviteUserPayload {
   email: string
   full_name: string
   phone?: string
+  name_prefix?: string | null
+  name_suffix?: string | null
   branch_id?: string | null
   is_branch_admin?: boolean
   role_ids?: string[]
@@ -53,6 +55,8 @@ export interface InviteUserPayload {
 export interface UpdateUserPayload {
   full_name?: string
   phone?: string
+  name_prefix?: string | null
+  name_suffix?: string | null
   is_org_admin?: boolean
   branch_id?: string | null
   is_branch_admin?: boolean
@@ -96,6 +100,8 @@ export function getMyPermissions(): Promise<Permission[]> {
 export interface RolePayload {
   name: string
   description?: string
+  name_prefix?: string | null
+  name_suffix?: string | null
   permissions: Permission[]
 }
 

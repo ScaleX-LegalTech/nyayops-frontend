@@ -35,6 +35,7 @@ import { PersonAvatar } from '@/components/ui/Avatar'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
+import { displayName } from '@/lib/formatName'
 import type { Branch, User } from '@/types'
 
 const PAGE_SIZE = 50
@@ -136,7 +137,7 @@ export default function UsersPage() {
                   <Td>
                     <div className="flex items-center gap-2.5">
                       <PersonAvatar label={u.full_name} size="sm" />
-                      <span className="font-medium text-ink">{u.full_name}</span>
+                      <span className="font-medium text-ink">{displayName(u)}</span>
                     </div>
                   </Td>
                   <Td className="text-ink-muted">{u.email}</Td>
@@ -371,6 +372,8 @@ function InviteDialog({
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
+  const [namePrefix, setNamePrefix] = useState('')
+  const [nameSuffix, setNameSuffix] = useState('')
   const [branchId, setBranchId] = useState('')
   const [isBranchAdmin, setIsBranchAdmin] = useState(false)
   const [roleIds, setRoleIds] = useState<string[]>([])
@@ -383,6 +386,8 @@ function InviteDialog({
         email,
         full_name: fullName,
         phone: phone || undefined,
+        name_prefix: namePrefix || undefined,
+        name_suffix: nameSuffix || undefined,
         role_ids: roleIds,
         ...(isManagingDirector
           ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin }
@@ -428,6 +433,12 @@ function InviteDialog({
         </Field>
         <Field label="Phone" hint="Optional">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </Field>
+        <Field label="Name prefix" hint='Optional, e.g. "Adv."'>
+          <Input value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
+        </Field>
+        <Field label="Name suffix" hint='Optional, e.g. "(Intern)"'>
+          <Input value={nameSuffix} onChange={(e) => setNameSuffix(e.target.value)} />
         </Field>
         {isManagingDirector && (
           <>
@@ -505,6 +516,8 @@ function EditUserDialog({
   const { toast } = useToast()
   const [fullName, setFullName] = useState(user.full_name)
   const [phone, setPhone] = useState(user.phone ?? '')
+  const [namePrefix, setNamePrefix] = useState(user.name_prefix ?? '')
+  const [nameSuffix, setNameSuffix] = useState(user.name_suffix ?? '')
   const [isAdmin, setIsAdmin] = useState(user.is_org_admin)
   const [branchId, setBranchId] = useState(user.branch_id ?? '')
   const [isBranchAdmin, setIsBranchAdmin] = useState(user.is_branch_admin)
@@ -514,6 +527,8 @@ function EditUserDialog({
       updateUser(user.id, {
         full_name: fullName,
         phone: phone || undefined,
+        name_prefix: namePrefix || undefined,
+        name_suffix: nameSuffix || undefined,
         is_org_admin: isAdmin,
         ...(isManagingDirector
           ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin, is_restricted: isRestricted }
@@ -555,6 +570,12 @@ function EditUserDialog({
         </Field>
         <Field label="Phone">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </Field>
+        <Field label="Name prefix" hint='Optional, e.g. "Adv."'>
+          <Input value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
+        </Field>
+        <Field label="Name suffix" hint='Optional, e.g. "(Intern)"'>
+          <Input value={nameSuffix} onChange={(e) => setNameSuffix(e.target.value)} />
         </Field>
         <label className="flex items-center gap-2.5 text-sm text-ink">
           <input
