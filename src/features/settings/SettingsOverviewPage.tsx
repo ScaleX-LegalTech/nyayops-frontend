@@ -227,6 +227,10 @@ function OrganizationFreezeCard() {
     mutationFn: (isFrozen: boolean) => setOrganizationFreeze(isFrozen),
     onSuccess: (updated) => {
       queryClient.setQueryData(qk.organization, updated)
+      // AppShell's paused-org banner reads a separate query (qk.organizationName,
+      // shared with the sidebar) - invalidate it too so the banner clears immediately
+      // instead of waiting for its own refetchInterval.
+      void queryClient.invalidateQueries({ queryKey: qk.organizationName })
       toast(
         updated.is_frozen
           ? 'Organization frozen — every write is blocked until you unfreeze it.'
@@ -239,6 +243,10 @@ function OrganizationFreezeCard() {
 
   if (!org) return null
 
+  // Platform staff froze this, not the org itself (e.g. non-payment) - only they can
+  // lift it, so don't offer a self-unfreeze button that would just 403.
+  const lockedByPlatform = org.is_frozen && org.frozen_by === 'platform_admin'
+
   return (
     <Card
       style={
@@ -250,9 +258,11 @@ function OrganizationFreezeCard() {
       <CardHeader
         title="Organization freeze"
         description={
-          org.is_frozen
-            ? 'Read-only for everyone, including you, until you unfreeze it.'
-            : 'A last-resort lockdown — e.g. a billing dispute or suspected compromise.'
+          lockedByPlatform
+            ? 'Paused by NyayOps staff, not by your team - resolve the issue that caused it (e.g. an outstanding payment) and contact support to have it lifted.'
+            : org.is_frozen
+              ? 'Read-only for everyone, including you, until you unfreeze it.'
+              : 'A last-resort lockdown — e.g. a billing dispute or suspected compromise.'
         }
         action={
           <span className="grid size-9 place-items-center rounded-control bg-danger-soft text-danger">
@@ -264,6 +274,7 @@ function OrganizationFreezeCard() {
         <Button
           variant={org.is_frozen ? 'secondary' : 'danger'}
           loading={mutation.isPending}
+          disabled={lockedByPlatform}
           onClick={() => mutation.mutate(!org.is_frozen)}
         >
           {org.is_frozen ? 'Unfreeze organization' : 'Freeze organization'}

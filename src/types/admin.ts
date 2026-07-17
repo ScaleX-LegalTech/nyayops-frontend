@@ -43,6 +43,8 @@ export interface Organization {
   id: string
   name: string
   is_frozen: boolean
+  /** 'self' | 'platform_admin' | null - only a 'self' freeze can be self-unfrozen. */
+  frozen_by: string | null
 }
 
 export interface BranchAdminPermissions {

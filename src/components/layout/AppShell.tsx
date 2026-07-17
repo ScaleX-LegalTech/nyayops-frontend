@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Menu, ShieldAlert, X } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 import { enablePushNotifications, ensureFreshPushSubscription, isPushSupported } from '@/lib/push'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { getOrganizationName } from '@/lib/api/organization'
@@ -20,8 +21,9 @@ export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { isManagingDirector } = useAuth()
   // Same queryKey as Sidebar's own getOrganizationName call, so this shares that
-  // cache entry instead of firing a second request - is_frozen just rides along.
+  // cache entry instead of firing a second request - is_frozen/frozen_by ride along.
   const { data: org } = useQuery({
     queryKey: qk.organizationName,
     queryFn: getOrganizationName,
@@ -105,7 +107,25 @@ export function AppShell() {
             role="alert"
           >
             <ShieldAlert className="size-4 shrink-0" />
-            This organization has been paused. Please contact your administrator.
+            {isManagingDirector && org.frozen_by === 'platform_admin' && (
+              <>
+                Your organization has been paused by NyayOps staff — everyone is
+                read-only. Resolve the issue that caused this (e.g. an outstanding
+                payment) and contact support to have it lifted.
+              </>
+            )}
+            {isManagingDirector && org.frozen_by !== 'platform_admin' && (
+              <>
+                Your organization is paused — everyone is read-only until you unfreeze
+                it.{' '}
+                <Link to="/settings" className="underline underline-offset-2 hover:no-underline">
+                  Unfreeze in Settings
+                </Link>
+                .
+              </>
+            )}
+            {!isManagingDirector &&
+              'This organization has been paused. Please contact your administrator.'}
           </div>
         )}
 
