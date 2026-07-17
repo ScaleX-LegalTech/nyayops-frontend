@@ -6,27 +6,27 @@
   scratch OKLCH→WCAG script from the redesign) for icon-anchored badges.
 */
 @theme {
-  /* Brand (cobalt) + shell (navy sidebar/topbar) + accent (gold, sparing emphasis) */
-  --color-brand: oklch(0.48 0.15 235);
-  --color-brand-strong: oklch(0.38 0.14 235);
-  --color-brand-soft: oklch(0.94 0.025 235);
-  --color-shell: oklch(0.2 0.05 240);
-  --color-shell-soft: oklch(0.27 0.045 240);
-  --color-shell-ink: oklch(0.96 0.006 235);
-  --color-shell-ink-muted: oklch(0.66 0.03 235);
-  --color-shell-border: oklch(0.32 0.04 240);
-  --color-accent: oklch(0.78 0.13 95);
-  --color-accent-strong: oklch(0.62 0.12 95);
+  /* Brand (royal blue) + shell (deep navy sidebar/topbar) + accent (amber, sparing emphasis) */
+  --color-brand: oklch(0.546 0.215 262.9);
+  --color-brand-strong: oklch(0.488 0.217 264.4);
+  --color-brand-soft: oklch(0.97 0.014 254.6);
+  --color-shell: oklch(0.208 0.04 265.8);
+  --color-shell-soft: oklch(0.279 0.037 260);
+  --color-shell-ink: oklch(0.984 0.003 247.9);
+  --color-shell-ink-muted: oklch(0.711 0.035 256.8);
+  --color-shell-border: oklch(0.372 0.039 257.3);
+  --color-accent: oklch(0.769 0.165 70.1);
+  --color-accent-strong: oklch(0.666 0.157 58.3);
 
   /* Surfaces + ink — cool off-white, tinted toward the brand hue, never pure gray */
-  --color-bg: oklch(0.985 0.004 235);
+  --color-bg: oklch(0.98 0.005 275);
   --color-surface: oklch(1 0 0);
-  --color-surface-muted: oklch(0.965 0.006 235);
-  --color-ink: oklch(0.26 0.02 235);
-  --color-ink-muted: oklch(0.5 0.018 235);
-  --color-ink-faint: oklch(0.555 0.016 235);
-  --color-border: oklch(0.9 0.008 235);
-  --color-border-strong: oklch(0.8 0.012 235);
+  --color-surface-muted: oklch(0.968 0.007 247.9);
+  --color-ink: oklch(0.279 0.037 260);
+  --color-ink-muted: oklch(0.554 0.041 257.4);
+  --color-ink-faint: oklch(0.711 0.035 256.8);
+  --color-border: oklch(0.928 0.006 264.5);
+  --color-border-strong: oklch(0.872 0.009 258.3);
 
   /* Status semantics — each has a base (icon/dot fill, ≥4.5:1 on white), a strong
      variant (label text on its own soft bg) and a soft bg (tinted badge fill). */
