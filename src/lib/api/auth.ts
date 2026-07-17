@@ -1,6 +1,12 @@
-import type { LoginResponse, MfaEnrollResponse, TenantRegistrationResponse } from '@/types'
-import { post } from './client'
+import type { AuthConfig, LoginResponse, MfaEnrollResponse, TenantRegistrationResponse } from '@/types'
+import { get, post } from './client'
 import { getDeviceToken } from './tokens'
+
+/** Public - lets the login screen know up front whether the email-OTP step
+ * (and its "email me a code" fallback) will actually work before offering it. */
+export function getAuthConfig(): Promise<AuthConfig> {
+  return get<AuthConfig>('/auth/config')
+}
 
 export interface RegisterTenantPayload {
   organization_name: string

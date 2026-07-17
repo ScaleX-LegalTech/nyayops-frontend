@@ -38,6 +38,7 @@ export const qk = {
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
   notifications: ['notifications'] as const,
+  authConfig: ['auth', 'config'] as const,
   organization: ['organization'] as const,
   organizationName: ['organization', 'name'] as const,
   branchAdmins: ['branch-admins'] as const,
