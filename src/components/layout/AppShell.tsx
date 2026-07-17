@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import { Menu, X } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Menu, ShieldAlert, X } from 'lucide-react'
 import { enablePushNotifications, ensureFreshPushSubscription, isPushSupported } from '@/lib/push'
 import { playNotificationSound } from '@/lib/notificationSound'
+import { getOrganizationName } from '@/lib/api/organization'
 import { qk } from '@/lib/queryKeys'
 import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
@@ -19,6 +20,13 @@ export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  // Same queryKey as Sidebar's own getOrganizationName call, so this shares that
+  // cache entry instead of firing a second request - is_frozen just rides along.
+  const { data: org } = useQuery({
+    queryKey: qk.organizationName,
+    queryFn: getOrganizationName,
+    refetchInterval: 60_000,
+  })
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -91,6 +99,16 @@ export function AppShell() {
         )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {org?.is_frozen && (
+          <div
+            className="flex items-center justify-center gap-2 bg-danger px-4 py-2 text-center text-sm font-medium text-white"
+            role="alert"
+          >
+            <ShieldAlert className="size-4 shrink-0" />
+            This organization has been paused. Please contact your administrator.
+          </div>
+        )}
+
         <header
           className="sticky top-0 flex h-16 items-center gap-3 border-b border-border bg-bg/90 px-4 backdrop-blur sm:px-6"
           style={{ zIndex: 'var(--z-sticky)' }}
