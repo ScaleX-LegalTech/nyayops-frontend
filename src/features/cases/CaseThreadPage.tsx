@@ -46,6 +46,7 @@ export default function CaseThreadPage() {
   const { data: activity } = useQuery({
     queryKey: qk.caseActivity(caseId),
     queryFn: () => listCaseActivity(caseId),
+    enabled: !!c,
   })
 
   function invalidate() {

@@ -25,5 +25,5 @@ export function useCasePeople(caseId: string) {
     return person ? displayName(person) : undefined
   }
 
-  return { people, map, nameOf }
+  return { people, map, nameOf, isSuccess: query.isSuccess }
 }

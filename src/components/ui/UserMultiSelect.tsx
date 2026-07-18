@@ -1,30 +1,47 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getAssignablePeople } from '@/lib/api/cases'
+import { getAssignablePeople, getCasePeople } from '@/lib/api/cases'
 import { qk } from '@/lib/queryKeys'
 import { cn } from '@/lib/cn'
 import { displayName } from '@/lib/formatName'
+import { useAuth } from '@/auth/AuthContext'
 import { PersonAvatar } from '@/components/ui/Avatar'
 import { Input } from '@/components/ui/Field'
 
 interface UserMultiSelectProps {
-  /** Case(s) this selection is for - candidates are scoped to their branch(es),
-   * not every tenant user (see /cases/assignable-people on the backend). */
   caseIds: string[]
   selected: string[]
   onChange: (ids: string[]) => void
   emptyHint?: string
+  /** 'assignable' (default) - every branch-mate of the given case(s), for
+   * picking someone *new* to put on the case (Assign/Reassign/Review/Wizard).
+   * 'case-people' - only people already on the case (assignees/creator/org
+   * admin/branch admin, via GET /cases/{id}/people) - use this wherever the
+   * selection itself grants visibility into the case (e.g. a bill's
+   * associate_id is the only access gate BillService checks for non-admins,
+   * see services/bills.py - naming a branch-mate who isn't on the case would
+   * hand them that case's title/client name through their bill queue).
+   * Only supports a single case id. */
+  source?: 'assignable' | 'case-people'
 }
 
 /** Searchable checkbox list of a case's assignable users. Selected rows float to
  * the top so a growing selection stays visible without scrolling back up.
  * Degrades when not permitted or the case has no branch-mates yet. */
-export function UserMultiSelect({ caseIds, selected, onChange, emptyHint }: UserMultiSelectProps) {
+export function UserMultiSelect({
+  caseIds,
+  selected,
+  onChange,
+  emptyHint,
+  source = 'assignable',
+}: UserMultiSelectProps) {
+  const { user } = useAuth()
   const [query, setQuery] = useState('')
 
   const peopleQuery = useQuery({
-    queryKey: qk.assignablePeople(caseIds),
-    queryFn: () => getAssignablePeople(caseIds),
+    queryKey: source === 'case-people' ? qk.casePeople(caseIds[0]) : qk.assignablePeople(caseIds),
+    queryFn: () =>
+      source === 'case-people' ? getCasePeople(caseIds[0]) : getAssignablePeople(caseIds),
     enabled: caseIds.length > 0,
     retry: false,
   })
@@ -85,6 +102,7 @@ export function UserMultiSelect({ caseIds, selected, onChange, emptyHint }: User
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">
                     {displayName(u)}
+                    {u.id === user?.sub && <span className="text-ink-muted"> (Me)</span>}
                   </span>
                   <span className="block truncate text-xs text-ink-muted">{u.email}</span>
                 </span>

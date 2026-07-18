@@ -25,9 +25,15 @@ only place base visual components should be defined.
 - `PageHeader.tsx` — title + accent underline + description + actions row.
 - `Tabs.tsx` — `role="tablist"` tab bar with optional count badges.
 - `MentionTextarea.tsx` — `@name` autocomplete textarea.
-- `UserMultiSelect.tsx` — searchable checkbox list of assign candidates for a given `caseIds`
-  prop (backed by `GET /cases/assignable-people`, branch-scoped, not a tenant-wide user dump);
-  selected rows float to the top; degrades gracefully when the fetch isn't permitted.
+- `UserMultiSelect.tsx` — searchable checkbox list of candidates for a given `caseIds` prop.
+  `source` prop picks the backing endpoint: `'assignable'` (default, `GET
+  /cases/assignable-people`, branch-scoped, not a tenant-wide dump) for picking someone *new*
+  onto a case; `'case-people'` (`GET /cases/{id}/people`, single case only) wherever the
+  selection itself grants case visibility — a bill's `associate_id` is the only access gate
+  `BillService` checks for non-admins, so `RaiseBillDialog` uses `'case-people'` to stop a
+  branch-mate who isn't on the case from being handed that case's title/client name through
+  their bill queue. Selected rows float to the top; degrades gracefully when the fetch isn't
+  permitted.
 - `useFloatingPanel.ts` — non-visual hook pair (`useFloatingPanel`, `useOutsideClose`) shared by
   `Select`, `DatePicker`, `MentionTextarea`.
 
