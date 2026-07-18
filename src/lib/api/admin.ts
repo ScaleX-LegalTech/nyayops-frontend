@@ -61,6 +61,7 @@ export interface UpdateUserPayload {
   branch_id?: string | null
   is_branch_admin?: boolean
   is_restricted?: boolean
+  is_active?: boolean
 }
 
 export function listUsers(filters: UserSearchFilters = {}): Promise<UserPage> {

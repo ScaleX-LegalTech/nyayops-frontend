@@ -6,7 +6,11 @@ One folder per business domain, each holding its own pages/dialogs as flat `.tsx
 further nesting convention beyond this):
 
 - **`admin/`** — `BranchAdminPermissionsDialog.tsx`, `BranchAdminsPage.tsx`, `BranchesPage.tsx`,
-  `BranchFormDialog.tsx`, `RoleEditPage.tsx`, `RolesPage.tsx`, `UsersPage.tsx` (676 lines).
+  `BranchFormDialog.tsx`, `RoleEditPage.tsx`, `RolesPage.tsx`, `UsersPage.tsx` (965 lines — search
+  bar, branch/role/status/joined-date filters, sortable column headers, and row-action self-guards
+  all live in this one file; its `RowActionsMenu` uses `components/ui/useFloatingPanel.ts`'s
+  `useFloatingPanel`/`useOutsideClose` rather than hand-rolled positioning, so it clamps to the
+  viewport and re-tracks its trigger on scroll the same way `Field.tsx`'s `Select` does).
   Managing-Director-scoped in large part.
 - **`audit/`** — `AuditPage.tsx` (paginated/filterable log table + CSV export).
 - **`auth/`** — public unauthenticated pages: `LoginPage`, `RegisterPage`, `AcceptInvitePage`,

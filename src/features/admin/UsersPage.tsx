@@ -1,14 +1,20 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Ban,
   Building2,
   KeyRound,
   Lock,
   MoreVertical,
   Pencil,
+  Search,
   ShieldCheck,
   Trash2,
+  UserCheck,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -26,6 +32,7 @@ import { qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/auth/AuthContext'
+import { useFloatingPanel, useOutsideClose } from '@/components/ui/useFloatingPanel'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
@@ -36,19 +43,73 @@ import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Tabl
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
 import { displayName } from '@/lib/formatName'
-import type { Branch, User } from '@/types'
+import type { Branch, SortDir, User, UserSearchFilters, UserSortBy, UserStatus } from '@/types'
 
 const PAGE_SIZE = 50
 
+const STATUS_OPTIONS: { value: UserStatus | ''; label: string }[] = [
+  { value: '', label: 'Any status' },
+  { value: 'active', label: 'Active' },
+  { value: 'pending', label: 'Pending invitation' },
+  { value: 'suspended', label: 'Suspended' },
+]
+
+const SORT_COLUMNS: { key: UserSortBy; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'branch', label: 'Branch' },
+  { key: 'joined_at', label: 'Joined' },
+]
+
 export default function UsersPage() {
   const queryClient = useQueryClient()
-  const { isManagingDirector } = useAuth()
+  const { user, isManagingDirector } = useAuth()
+  const currentUserId = user?.sub
   const [inviting, setInviting] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [managingRoles, setManagingRoles] = useState<User | null>(null)
   const [deleting, setDeleting] = useState<User | null>(null)
   const [resettingPassword, setResettingPassword] = useState<User | null>(null)
+  const [suspending, setSuspending] = useState<User | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+
+  const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+  const [branchId, setBranchId] = useState('')
+  const [roleId, setRoleId] = useState('')
+  const [status, setStatus] = useState<UserStatus | ''>('')
+  const [joinedFrom, setJoinedFrom] = useState('')
+  const [joinedTo, setJoinedTo] = useState('')
+  const [sortBy, setSortBy] = useState<UserSortBy>('joined_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), 350)
+    return () => clearTimeout(timer)
+  }, [q])
+
+  const filters: UserSearchFilters = useMemo(
+    () => ({
+      q: debouncedQ.trim() || undefined,
+      branch_id: branchId || undefined,
+      role_id: roleId || undefined,
+      status: status || undefined,
+      joined_from: joinedFrom || undefined,
+      joined_to: joinedTo || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    }),
+    [debouncedQ, branchId, roleId, status, joinedFrom, joinedTo, sortBy, sortDir],
+  )
+
+  function toggleSort(col: UserSortBy) {
+    if (sortBy === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(col)
+      setSortDir('asc')
+    }
+  }
 
   const {
     data,
@@ -60,8 +121,8 @@ export default function UsersPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: qk.usersPage(),
-    queryFn: ({ pageParam }) => listUsers({ limit: PAGE_SIZE, offset: pageParam }),
+    queryKey: qk.usersPage(filters),
+    queryFn: ({ pageParam }) => listUsers({ ...filters, limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.has_more ? allPages.reduce((sum, page) => sum + page.items.length, 0) : undefined,
@@ -81,6 +142,7 @@ export default function UsersPage() {
   const roleName = (id: string) => rolesQuery.data?.find((r) => r.id === id)?.name ?? id.slice(0, 6)
   const branchName = (id: string | null) =>
     id ? branchesQuery.data?.find((b) => b.id === id)?.name ?? id.slice(0, 6) : 'Org-wide'
+  const hasFilters = Boolean(q || branchId || roleId || status || joinedFrom || joinedTo)
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -109,6 +171,75 @@ export default function UsersPage() {
         }
       />
 
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-64 flex-1">
+          <Field label="Search">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Name, email, branch, role or access..."
+                className="pl-9"
+              />
+            </div>
+          </Field>
+        </div>
+        {isManagingDirector && (
+          <Field label="Branch" className="w-44">
+            <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+              <option value="">All branches</option>
+              {(branchesQuery.data ?? []).map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <Field label="Role" className="w-44">
+          <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+            <option value="">All roles</option>
+            {(rolesQuery.data ?? []).map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Status" className="w-44">
+          <Select value={status} onChange={(e) => setStatus(e.target.value as UserStatus | '')}>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Joined from">
+          <Input type="date" value={joinedFrom} onChange={(e) => setJoinedFrom(e.target.value)} />
+        </Field>
+        <Field label="Joined to">
+          <Input type="date" value={joinedTo} onChange={(e) => setJoinedTo(e.target.value)} />
+        </Field>
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setQ('')
+              setDebouncedQ('')
+              setBranchId('')
+              setRoleId('')
+              setStatus('')
+              setJoinedFrom('')
+              setJoinedTo('')
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -123,9 +254,26 @@ export default function UsersPage() {
           <Table>
             <THead>
               <Tr>
-                <Th>Name</Th>
-                <Th>Email</Th>
-                <Th>Branch</Th>
+                {SORT_COLUMNS.map((col) => (
+                  <Th key={col.key}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.key)}
+                      className="flex items-center gap-1 hover:text-ink"
+                    >
+                      {col.label}
+                      {sortBy === col.key ? (
+                        sortDir === 'asc' ? (
+                          <ArrowUp className="size-3.5" />
+                        ) : (
+                          <ArrowDown className="size-3.5" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="size-3.5 opacity-40" />
+                      )}
+                    </button>
+                  </Th>
+                ))}
                 <Th>Roles</Th>
                 <Th>Access</Th>
                 <Th className="text-right">Actions</Th>
@@ -142,6 +290,9 @@ export default function UsersPage() {
                   </Td>
                   <Td className="text-ink-muted">{u.email}</Td>
                   <Td className="text-ink-muted">{branchName(u.branch_id)}</Td>
+                  <Td className="text-ink-muted">
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {u.role_ids.length === 0 ? (
@@ -168,7 +319,12 @@ export default function UsersPage() {
                       ) : (
                         <span className="text-ink-faint">Member</span>
                       )}
-                      {!u.is_active && <Badge tone="neutral">Pending</Badge>}
+                      {u.status === 'pending' && <Badge tone="neutral">Pending</Badge>}
+                      {u.status === 'suspended' && (
+                        <Badge tone="danger">
+                          <Ban className="size-3.5" /> Suspended
+                        </Badge>
+                      )}
                       {u.is_restricted && (
                         <Badge tone="warning">
                           <Lock className="size-3.5" /> Read-only
@@ -179,9 +335,14 @@ export default function UsersPage() {
                   <Td>
                     <div className="flex justify-end">
                       <RowActionsMenu
+                        isSelf={u.id === currentUserId}
+                        isAdminRow={u.is_org_admin || u.is_branch_admin}
+                        canSuspend={isManagingDirector}
+                        status={u.status}
                         onManageRoles={() => setManagingRoles(u)}
                         onResetPassword={() => setResettingPassword(u)}
                         onEdit={() => setEditing(u)}
+                        onSuspend={() => setSuspending(u)}
                         onDelete={() => setDeleting(u)}
                       />
                     </div>
@@ -264,47 +425,85 @@ export default function UsersPage() {
           <span className="font-medium text-ink">{resettingPassword?.full_name}</span>?
         </p>
       </Dialog>
+      <Dialog
+        open={!!suspending}
+        onClose={() => setSuspending(null)}
+        title={suspending?.status === 'suspended' ? 'Reinstate user' : 'Suspend user'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSuspending(null)}>
+              Cancel
+            </Button>
+            <SuspendButton
+              user={suspending}
+              onDone={() => { invalidate(); setSuspending(null) }}
+            />
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          {suspending?.status === 'suspended' ? (
+            <>
+              Reinstate <span className="font-medium text-ink">{suspending?.full_name}</span>'s
+              login access?
+            </>
+          ) : (
+            <>
+              Suspend <span className="font-medium text-ink">{suspending?.full_name}</span>'s
+              login access? They will not be able to sign in until reinstated.
+            </>
+          )}
+        </p>
+      </Dialog>
     </div>
   )
 }
 
 function RowActionsMenu({
+  isSelf,
+  isAdminRow,
+  canSuspend: canSuspendAtAll,
+  status,
   onManageRoles,
   onResetPassword,
   onEdit,
+  onSuspend,
   onDelete,
 }: {
+  isSelf: boolean
+  isAdminRow: boolean
+  /** Only the Managing Director can suspend/reinstate login access - a Branch Admin
+   * calling PUT /users/{id} with is_active silently has it dropped server-side
+   * (UserService.update_user), so hide the action entirely rather than showing a
+   * false-success toast that changed nothing. */
+  canSuspend: boolean
+  status: UserStatus
   onManageRoles: () => void
   onResetPassword: () => void
   onEdit: () => void
+  onSuspend: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, right: 0 })
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const { triggerRef, panelRef, pos } = useFloatingPanel<HTMLButtonElement>(open)
+  useOutsideClose(open, [triggerRef, panelRef], () => setOpen(false))
 
-  useEffect(() => {
-    if (!open) return
-    const onClick = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        !triggerRef.current?.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [open])
+  // A user can't manage their own account-level access (delete/suspend) - doing so
+  // from the row they're viewing would either lock them out or need a UI for
+  // "are you sure you want to delete yourself", neither of which is sound. Org admins
+  // and branch admins already sit above role-based access, so per-role assignment to
+  // them is blocked (backend enforces this too - see UserService.assign_roles).
+  const canManageRoles = !isAdminRow
+  const canSuspend = canSuspendAtAll && !isSelf
+  const canDelete = !isSelf
 
-  function toggle() {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
-    }
-    setOpen((v) => !v)
+  if (!canManageRoles && !canSuspend && !canDelete) {
+    return (
+      <Button size="icon" variant="ghost" disabled aria-label="No actions available">
+        <MoreVertical className="size-4" />
+      </Button>
+    )
   }
 
   function run(action: () => void) {
@@ -314,22 +513,30 @@ function RowActionsMenu({
 
   return (
     <>
-      <Button size="icon" variant="ghost" ref={triggerRef} onClick={toggle} aria-label="Open actions">
+      <Button
+        size="icon"
+        variant="ghost"
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Open actions"
+      >
         <MoreVertical className="size-4" />
       </Button>
       {open &&
         createPortal(
           <div
-            ref={menuRef}
+            ref={panelRef}
             className="fixed w-48 overflow-hidden rounded-card border border-border bg-surface shadow-pop animate-rise"
-            style={{ top: pos.top, right: pos.right, zIndex: 'var(--z-dropdown)' }}
+            style={{ top: pos.top, left: pos.left, zIndex: 'var(--z-dropdown)' }}
           >
-          <button
-            onClick={() => run(onManageRoles)}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
-          >
-            <ShieldCheck className="size-4 text-ink-muted" /> Manage roles
-          </button>
+          {canManageRoles && (
+            <button
+              onClick={() => run(onManageRoles)}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+            >
+              <ShieldCheck className="size-4 text-ink-muted" /> Manage roles
+            </button>
+          )}
           <button
             onClick={() => run(onResetPassword)}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
@@ -342,12 +549,30 @@ function RowActionsMenu({
           >
             <Pencil className="size-4 text-ink-muted" /> Edit user
           </button>
-          <button
-            onClick={() => run(onDelete)}
-            className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-danger hover:bg-danger-soft"
-          >
-            <Trash2 className="size-4" /> Remove user
-          </button>
+          {canSuspend && (
+            <button
+              onClick={() => run(onSuspend)}
+              className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+            >
+              {status === 'suspended' ? (
+                <>
+                  <UserCheck className="size-4 text-ink-muted" /> Reinstate user
+                </>
+              ) : (
+                <>
+                  <Ban className="size-4 text-ink-muted" /> Suspend user
+                </>
+              )}
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => run(onDelete)}
+              className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-danger hover:bg-danger-soft"
+            >
+              <Trash2 className="size-4" /> Remove user
+            </button>
+          )}
           </div>,
           document.body,
         )}
@@ -727,6 +952,28 @@ function ResetPasswordButton({ user, onDone }: { user: User | null; onDone: () =
   return (
     <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>
       Send reset link
+    </Button>
+  )
+}
+
+function SuspendButton({ user, onDone }: { user: User | null; onDone: () => void }) {
+  const { toast } = useToast()
+  const reinstating = user?.status === 'suspended'
+  const mutation = useMutationWithToast({
+    mutationFn: () => updateUser(user!.id, { is_active: reinstating }),
+    onSuccess: () => {
+      toast(reinstating ? 'User reinstated.' : 'User suspended.', 'success')
+      onDone()
+    },
+    errorFallback: reinstating ? 'Could not reinstate user.' : 'Could not suspend user.',
+  })
+  return (
+    <Button
+      variant={reinstating ? 'primary' : 'danger'}
+      loading={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      {reinstating ? 'Reinstate' : 'Suspend'}
     </Button>
   )
 }

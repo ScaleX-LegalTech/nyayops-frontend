@@ -1,3 +1,5 @@
+export type UserStatus = 'active' | 'pending' | 'suspended'
+
 export interface User {
   id: string
   branch_id: string | null
@@ -13,9 +15,22 @@ export interface User {
   is_restricted: boolean
   email_notifications_enabled: boolean
   role_ids: string[]
+  created_at: string
+  status: UserStatus
 }
 
+export type UserSortBy = 'name' | 'email' | 'branch' | 'joined_at'
+export type SortDir = 'asc' | 'desc'
+
 export interface UserSearchFilters {
+  q?: string
+  branch_id?: string
+  role_id?: string
+  status?: UserStatus
+  joined_from?: string
+  joined_to?: string
+  sort_by?: UserSortBy
+  sort_dir?: SortDir
   limit?: number
   offset?: number
 }
