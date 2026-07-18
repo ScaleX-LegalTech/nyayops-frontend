@@ -17,6 +17,7 @@ import {
   Briefcase,
   ClipboardClock,
   ClipboardList,
+  History,
   IndianRupee,
   ShieldAlert,
   Users,
@@ -24,26 +25,30 @@ import {
 import {
   getActivity,
   getCasesByStatus,
+  getIssuesSummary,
   getKpis,
   getMyWork,
   getOverdueCases,
+  getPaymentStatusSummary,
+  getRecentActivity,
   getScrutinyActionRequired,
   getTopCourts,
+  getUpcomingHearings,
 } from '@/lib/api/dashboard'
 import { getOrganizationName } from '@/lib/api/organization'
 import { useAuth } from '@/auth/AuthContext'
 import { usePermissions } from '@/lib/usePermissions'
+import { useUsers } from '@/lib/useUsers'
 import { qk } from '@/lib/queryKeys'
-import { humanize, formatDate } from '@/lib/format'
+import { humanize, formatDate, formatRelative } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { EntityAvatar } from '@/components/ui/Avatar'
 import { EmptyState, Skeleton } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
-import type { Case, Issue, PaymentMilestone } from '@/types'
+import type { Case, Issue, PaymentMilestone, RecentActivityItem } from '@/types'
 import type { LucideIcon } from 'lucide-react'
 
 // Aggregate dashboard stats don't need to feel real-time - a longer staleTime than
@@ -83,6 +88,75 @@ function KpiCard({
 
 function ChartSkeleton({ height = 220 }: { height?: number }) {
   return <Skeleton className="w-full" style={{ height }} />
+}
+
+/** Small status-breakdown donut, generalized from the case-status chart above so
+ * issues/payments summaries can reuse the same visual without duplicating the
+ * larger primary "Case snapshot" chart's layout. */
+function StatusDonutCard({
+  title,
+  description,
+  icon,
+  data,
+  isLoading,
+  emptyTitle,
+  emptyDescription,
+}: {
+  title: string
+  description?: string
+  icon: LucideIcon
+  data: { status: string; count: number }[]
+  isLoading?: boolean
+  emptyTitle: string
+  emptyDescription?: string
+}) {
+  const chartData = data.map((d) => ({ name: humanize(d.status), value: d.count }))
+  return (
+    <Card>
+      <CardHeader title={title} description={description} />
+      <CardBody className="border-t border-border">
+        {isLoading ? (
+          <ChartSkeleton height={160} />
+        ) : chartData.length === 0 ? (
+          <EmptyState icon={icon} title={emptyTitle} description={emptyDescription} />
+        ) : (
+          <div className="flex flex-col items-center gap-4 sm:flex-row">
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={38}
+                  outerRadius={64}
+                  paddingAngle={2}
+                  stroke="none"
+                  isAnimationActive={false}
+                >
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <ul className="flex-1 space-y-1.5">
+              {chartData.map((d, i) => (
+                <li key={d.name} className="flex items-center gap-2 text-sm">
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ background: STATUS_COLORS[i % STATUS_COLORS.length] }}
+                  />
+                  <span className="flex-1 text-ink-muted">{d.name}</span>
+                  <span className="font-medium tabular text-ink">{d.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
 }
 
 /** Row-skeleton placeholder matching CaseListCard's row shape, shown while its
@@ -252,12 +326,66 @@ function PaymentFollowUpCard({
   )
 }
 
+function ActivityFeedCard({
+  activity,
+  isLoading,
+}: {
+  activity: RecentActivityItem[]
+  isLoading?: boolean
+}) {
+  const { nameOf } = useUsers()
+  return (
+    <Card>
+      <CardHeader
+        title="Recent activity"
+        description="Latest events on cases you created or are assigned to"
+      />
+      <CardBody className="border-t border-border p-0">
+        {isLoading ? (
+          <ListRowsSkeleton />
+        ) : activity.length === 0 ? (
+          <EmptyState
+            icon={History}
+            title="No activity yet"
+            description="Actions on your cases will show up here."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {activity.map((item) => (
+              <Link
+                key={item.id}
+                to={`/cases/${item.case_id}`}
+                className="flex items-start gap-3 px-5 py-3 hover:bg-surface-muted"
+              >
+                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">
+                  <History className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{humanize(item.action_type)}</p>
+                  <p className="text-xs text-ink-muted">
+                    {nameOf(item.actor_id)} · {formatRelative(item.occurred_at)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
 /** Personal dashboard - every authenticated user gets this, scoped to exactly what
  * they created/are assigned to/were routed. No permission required to view it. */
 function MyWorkView() {
   const myWork = useQuery({
     queryKey: qk.myWork,
     queryFn: getMyWork,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const recentActivity = useQuery({
+    queryKey: qk.recentActivity,
+    queryFn: getRecentActivity,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
   const isLoading = myWork.isLoading
@@ -287,15 +415,21 @@ function MyWorkView() {
         />
         <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} isLoading={isLoading} />
       </div>
-      <CaseListCard
-        title="Overdue flags"
-        description="Past their hearing date and not yet closed"
-        cases={data?.overdue_cases ?? []}
-        isLoading={isLoading}
-        emptyTitle="Nothing overdue"
-        emptyDescription="You're on track."
-        showHearingDate
-      />
+      <div className="grid gap-5 lg:grid-cols-2">
+        <CaseListCard
+          title="Overdue flags"
+          description="Past their hearing date and not yet closed"
+          cases={data?.overdue_cases ?? []}
+          isLoading={isLoading}
+          emptyTitle="Nothing overdue"
+          emptyDescription="You're on track."
+          showHearingDate
+        />
+        <ActivityFeedCard
+          activity={recentActivity.data ?? []}
+          isLoading={recentActivity.isLoading}
+        />
+      </div>
     </div>
   )
 }
@@ -331,6 +465,21 @@ function OverviewView() {
   const scrutinyActionRequired = useQuery({
     queryKey: qk.scrutinyActionRequired,
     queryFn: getScrutinyActionRequired,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const upcomingHearings = useQuery({
+    queryKey: qk.upcomingHearings,
+    queryFn: getUpcomingHearings,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const issuesSummary = useQuery({
+    queryKey: qk.issuesSummary,
+    queryFn: getIssuesSummary,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const paymentStatusSummary = useQuery({
+    queryKey: qk.paymentStatusSummary,
+    queryFn: getPaymentStatusSummary,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
 
@@ -511,7 +660,7 @@ function OverviewView() {
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Scrutiny action required"
           description="Rejected scrutiny - needs a corrected document and re-approval"
@@ -520,30 +669,36 @@ function OverviewView() {
           emptyTitle="Nothing needs action"
           emptyDescription="No scrutiny has been rejected right now."
         />
+        <CaseListCard
+          title="Upcoming hearings"
+          description="Across the firm, soonest first"
+          cases={upcomingHearings.data ?? []}
+          isLoading={upcomingHearings.isLoading}
+          emptyTitle="No upcoming hearings"
+          showHearingDate
+        />
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Open issues" description="Document Missing / Info Needed / Blocker flags raised across all cases" />
-          <CardBody className="border-t border-border">
-            <EmptyState
-              icon={ClipboardList}
-              title="Not tracked yet"
-              description="This aggregate snapshot isn't wired up yet - see My Work for issues routed to you individually."
-            />
-          </CardBody>
-        </Card>
+        <StatusDonutCard
+          title="Open issues"
+          description="Document Missing / Info Needed / Blocker flags raised across all cases"
+          icon={ClipboardList}
+          data={issuesSummary.data ?? []}
+          isLoading={issuesSummary.isLoading}
+          emptyTitle="No issues raised"
+          emptyDescription="Nothing to flag right now."
+        />
 
-        <Card>
-          <CardHeader title="Payment status" description="Bills sent vs. received vs. overdue, by client" />
-          <CardBody className="border-t border-border">
-            <EmptyState
-              icon={IndianRupee}
-              title="Not tracked yet"
-              description="This aggregate snapshot isn't wired up yet - see My Work for payment follow-ups on your own cases."
-            />
-          </CardBody>
-        </Card>
+        <StatusDonutCard
+          title="Payment status"
+          description="Fee milestones by status, across all cases"
+          icon={IndianRupee}
+          data={paymentStatusSummary.data ?? []}
+          isLoading={paymentStatusSummary.isLoading}
+          emptyTitle="No payment milestones"
+          emptyDescription="No fee milestones have been created yet."
+        />
       </div>
     </div>
   )
@@ -601,7 +756,6 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
-            <GlobalSearch />
           </div>
         }
       />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -48,7 +48,12 @@ function resultHref(item: SearchResultItem): string | null {
   }
 }
 
-export function GlobalSearch() {
+export interface GlobalSearchHandle {
+  /** Focuses the input and opens the results panel - used by the Cmd/Ctrl+K shortcut. */
+  focus: () => void
+}
+
+export const GlobalSearch = forwardRef<GlobalSearchHandle>(function GlobalSearch(_props, ref) {
   const navigate = useNavigate()
   const [raw, setRaw] = useState('')
   const [query, setQuery] = useState('')
@@ -56,6 +61,14 @@ export function GlobalSearch() {
   const [activeIndex, setActiveIndex] = useState(0)
   const { triggerRef, panelRef, pos } = useFloatingPanel<HTMLDivElement>(open)
   useOutsideClose(open, [triggerRef, panelRef], () => setOpen(false))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus()
+      setOpen(true)
+    },
+  }))
 
   // Debounce keystrokes 300ms before hitting the API.
   useEffect(() => {
@@ -119,6 +132,7 @@ export function GlobalSearch() {
     <div ref={triggerRef} className="relative w-72 shrink-0 lg:w-96">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
       <input
+        ref={inputRef}
         value={raw}
         onChange={(e) => {
           setRaw(e.target.value)
@@ -128,8 +142,16 @@ export function GlobalSearch() {
         onKeyDown={onKeyDown}
         placeholder="Search cases, documents, people…"
         aria-label="Global search"
-        className="h-10 w-full rounded-control border border-border-strong bg-surface pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand focus-visible:border-brand"
+        className="h-10 w-full rounded-control border border-border-strong bg-surface pl-9 pr-14 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand focus-visible:border-brand"
       />
+      {!raw && !search.isFetching && (
+        <kbd
+          aria-hidden
+          className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-border-strong bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ink-muted sm:block"
+        >
+          {navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl K'}
+        </kbd>
+      )}
       {search.isFetching ? (
         <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-ink-faint" />
       ) : (
@@ -198,4 +220,4 @@ export function GlobalSearch() {
         )}
     </div>
   )
-}
+})
