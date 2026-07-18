@@ -31,7 +31,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { Dialog } from '@/components/ui/Dialog'
-import { Capsule, PriorityBadge, StatusBadge } from '@/components/ui/Badge'
+import { Capsule, FlowDirectionBadge, PriorityBadge, StatusBadge } from '@/components/ui/Badge'
 import { TableWrap } from '@/components/ui/Table'
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { CaseWizardDialog } from './CaseWizardDialog'
@@ -338,6 +338,15 @@ export default function CasesPage() {
                         <Capsule tone="danger" icon={AlertTriangle}>
                           Action required
                         </Capsule>
+                      )}
+                      {c.billing_stage && (
+                        <>
+                          <span className="text-ink-faint">·</span>
+                          <FlowDirectionBadge direction={c.billing_stage} />
+                          {c.billing_type && (
+                            <span className="text-ink-faint">{c.billing_type}</span>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">

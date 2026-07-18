@@ -1,3 +1,5 @@
+import type { BillFlowDirection } from './bills'
+
 export const CASE_STATUSES = [
   'draft',
   'new',
@@ -344,6 +346,8 @@ export interface CaseDashboardCard {
   scrutiny_review_status: 'approved' | 'rejected' | null
   assignee_names: string[]
   created_at: string
+  billing_stage: BillFlowDirection | null
+  billing_type: string | null
 }
 
 export interface CasePage {
