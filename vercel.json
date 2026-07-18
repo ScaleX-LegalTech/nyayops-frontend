@@ -1,0 +1,16 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "app.nyayops.in" }],
+      "destination": "https://workspace.nyayops.in/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "portal.nyayops.in" }],
+      "destination": "https://workspace.nyayops.in/:path*",
+      "permanent": true
+    }
+  ]
+}
