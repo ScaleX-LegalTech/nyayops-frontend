@@ -21,11 +21,9 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { hardDeleteCase, listCases, listDeletedCases, restoreCase } from '@/lib/api/cases'
-import { listBranches } from '@/lib/api/admin'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { CASE_STATUSES, type CaseDashboardCard, type CaseStatus } from '@/types'
 import { courtLabel, formatDate, humanize } from '@/lib/format'
-import { useAuth } from '@/auth/AuthContext'
 import { usePermissions } from '@/lib/usePermissions'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
@@ -72,15 +70,7 @@ export default function CasesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { isManagingDirector } = useAuth()
   const { hasPermission } = usePermissions()
-  const branchesQuery = useQuery({
-    queryKey: qk.branches,
-    queryFn: listBranches,
-    enabled: isManagingDirector,
-  })
-  const branchName = (id: string | null) =>
-    id ? branchesQuery.data?.find((b) => b.id === id)?.name ?? id.slice(0, 6) : 'Org-wide'
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<CaseStatus | ''>('')
   const [sortBy, setSortBy] = useState<SortBy>('created_desc')
@@ -361,7 +351,7 @@ export default function CasesPage() {
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="size-3.5 shrink-0 text-ink-faint" aria-hidden />
-                        {c.region ?? branchName(c.branch_id)}
+                        {c.region ?? c.branch_name ?? 'Org-wide'}
                       </span>
                     </div>
                     <p className="mt-1 flex items-center gap-1 text-xs text-ink-muted">

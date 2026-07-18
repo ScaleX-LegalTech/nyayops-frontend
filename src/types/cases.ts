@@ -331,7 +331,7 @@ export interface CaseSearchFilters {
 // backend. Only what's actually rendered anywhere a case shows up as a row/card.
 export interface CaseDashboardCard {
   id: string
-  branch_id: string | null
+  branch_name: string | null
   case_code: string
   title: string
   client_name: string
