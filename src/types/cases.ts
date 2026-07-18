@@ -1,3 +1,5 @@
+import type { BillFlowDirection } from './bills'
+
 export const CASE_STATUSES = [
   'draft',
   'new',
@@ -331,7 +333,7 @@ export interface CaseSearchFilters {
 // backend. Only what's actually rendered anywhere a case shows up as a row/card.
 export interface CaseDashboardCard {
   id: string
-  branch_id: string | null
+  branch_name: string | null
   case_code: string
   title: string
   client_name: string
@@ -344,6 +346,8 @@ export interface CaseDashboardCard {
   scrutiny_review_status: 'approved' | 'rejected' | null
   assignee_names: string[]
   created_at: string
+  billing_stage: BillFlowDirection | null
+  billing_type: string | null
 }
 
 export interface CasePage {
