@@ -142,6 +142,24 @@ existing convention to match — this would be a from-scratch setup decision.
   consistency pass happens.
 - `src/assets/react.svg` / `vite.svg` are unused scaffold leftovers from `create-vite`.
 
+## Deployment
+
+Hosted on Vercel, project name `nyayops` (renamed from the default `frontend` 2026-07-18).
+`workspace.nyayops.in` is the canonical domain; `app.nyayops.in` and `portal.nyayops.in` both exist
+as memorable aliases that redirect to it (308). That redirect is configured via **Vercel's Domains
+API/dashboard** (`redirect`/`redirectStatusCode` fields on the domain object) — not `vercel.json`.
+A `vercel.json` with `redirects`/`has: host` rules was tried first and doesn't work for this case:
+that mechanism is for path/geo-conditional routing within a single domain's traffic, not for
+redirecting between multiple custom domains aliased to the same deployment — Vercel treats every
+aliased domain as an equally-valid entry point and doesn't evaluate `vercel.json` redirects to
+distinguish between them. If this redirect ever needs changing, do it via the dashboard (Project →
+Settings → Domains → click the domain → set redirect) or the API, not by adding a `vercel.json`
+back.
+
+`VITE_API_BASE_URL` is set to `https://api.nyayops.in/api/v1` as a Vercel production env var (Vite
+bakes it in at build time, per-environment values only take effect on the next build/deploy after
+being set — `vercel env add` then redeploy, not enough to just add it).
+
 ## Current priorities
 
 `CaseFullDetailsPage.tsx` (809 lines), `CaseDetailPage.tsx` (693 lines), and `UsersPage.tsx` (676
