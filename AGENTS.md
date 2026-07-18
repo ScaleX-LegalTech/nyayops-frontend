@@ -153,8 +153,13 @@ that mechanism is for path/geo-conditional routing within a single domain's traf
 redirecting between multiple custom domains aliased to the same deployment — Vercel treats every
 aliased domain as an equally-valid entry point and doesn't evaluate `vercel.json` redirects to
 distinguish between them. If this redirect ever needs changing, do it via the dashboard (Project →
-Settings → Domains → click the domain → set redirect) or the API, not by adding a `vercel.json`
-back.
+Settings → Domains → click the domain → set redirect) or the API.
+
+`vercel.json` **is** still needed, but only for one thing: a `rewrites` catch-all
+(`/(.*) -> /index.html`) so client-side routes (`/dashboard`, `/cases/...`, anything react-router
+owns) survive a hard refresh or direct link instead of 404ing — this is a static SPA build with no
+framework auto-detection to add that fallback for us. Don't delete this file thinking it's the
+inert redirect experiment from before; that part's gone, this part is load-bearing.
 
 `VITE_API_BASE_URL` is set to `https://api.nyayops.in/api/v1` as a Vercel production env var (Vite
 bakes it in at build time, per-environment values only take effect on the next build/deploy after
