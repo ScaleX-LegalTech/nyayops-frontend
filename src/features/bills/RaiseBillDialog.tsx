@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createUploadUrl, uploadFileBytes, confirmUpload } from '@/lib/api/documents'
 import { raiseBill } from '@/lib/api/bills'
+import { getCase } from '@/lib/api/cases'
 import { listBillTypes } from '@/lib/api/billTypes'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
@@ -49,8 +50,17 @@ export function RaiseBillDialog({
 
   const billTypesQuery = useQuery({ queryKey: qk.billTypes(), queryFn: () => listBillTypes() })
   const billTypes = billTypesQuery.data ?? []
+  // Almost always cache-warm - the case detail page (the only place this dialog opens
+  // from) already fetched this under the same key.
+  const caseQuery = useQuery({ queryKey: qk.caseDetail(caseId), queryFn: () => getCase(caseId) })
 
+  // `associateId` only holds an explicit user choice - until they touch the picker, the
+  // case owner is used as the default (derived, not synced via effect: they're always on
+  // the case, so raising your own bill as the owner needs no picking, and anyone else
+  // raising it still sees the owner pre-selected - and can change it - rather than an
+  // empty required field with no obvious right answer).
   const [associateId, setAssociateId] = useState('')
+  const effectiveAssociateId = associateId || caseQuery.data?.created_by || ''
   const [billTypeChoice, setBillTypeChoice] = useState('')
   const [customTypeLabel, setCustomTypeLabel] = useState('')
   const [saveAsReusable, setSaveAsReusable] = useState(false)
@@ -116,7 +126,7 @@ export function RaiseBillDialog({
       }
 
       return raiseBill(caseId, {
-        associate_id: associateId,
+        associate_id: effectiveAssociateId,
         bill_type_id: isCustomType ? undefined : billTypeChoice || undefined,
         custom_type_label: isCustomType ? customTypeLabel : undefined,
         flow_direction: flowDirection,
@@ -149,7 +159,7 @@ export function RaiseBillDialog({
   const hasBillType = isCustomType ? !!customTypeLabel.trim() : !!billTypeChoice
   const reusableTypeValid = !saveAsReusable || !!caseTypeCategory
   const valid =
-    !!associateId &&
+    !!effectiveAssociateId &&
     hasBillType &&
     reusableTypeValid &&
     !!destinationValue.trim() &&
@@ -186,12 +196,13 @@ export function RaiseBillDialog({
         }}
         className="space-y-4"
       >
-        <Field label="Associate" required>
+        <Field label="Associate" required hint="Defaults to the case owner — change it to route this bill to someone else.">
           <UserMultiSelect
             caseIds={[caseId]}
-            selected={associateId ? [associateId] : []}
+            source="case-people"
+            selected={effectiveAssociateId ? [effectiveAssociateId] : []}
             onChange={(ids) => setAssociateId(ids[ids.length - 1] ?? '')}
-            emptyHint="No assignable associates for this case."
+            emptyHint="No one is assigned to this case yet."
           />
         </Field>
 
