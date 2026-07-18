@@ -33,3 +33,5 @@ DESIGN.md
 PRODUCT.md
 
 package-lock.json
+.vercel
+.env*
