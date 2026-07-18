@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
 import { NotificationsBell } from './NotificationsBell'
 import { UserMenu } from './UserMenu'
+import { GlobalSearch, type GlobalSearchHandle } from './GlobalSearch'
 
 // How long to let the shell render before asking - a permission prompt on a blank
 // screen reads as spam.
@@ -22,6 +23,18 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { isManagingDirector } = useAuth()
+  const searchRef = useRef<GlobalSearchHandle>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   // Same queryKey as Sidebar's own getOrganizationName call, so this shares that
   // cache entry instead of firing a second request - is_frozen/frozen_by ride along.
   const { data: org } = useQuery({
@@ -141,6 +154,7 @@ export function AppShell() {
             <Menu className="size-5" />
           </button>
           <div className="flex-1" />
+          <GlobalSearch ref={searchRef} />
           <NotificationsBell />
           <UserMenu />
         </header>

@@ -1,5 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query'
-import type { CaseSearchFilters, DocumentSearchFilters, UserSearchFilters } from '@/types'
+import type {
+  BillCaseTypeCategory,
+  BillSearchFilters,
+  CaseSearchFilters,
+  DocumentSearchFilters,
+  UserSearchFilters,
+} from '@/types'
 
 /** Central query-key registry so invalidation stays consistent. */
 export const qk = {
@@ -10,6 +16,10 @@ export const qk = {
   overdue: ['dashboard', 'overdue'] as const,
   scrutinyActionRequired: ['dashboard', 'scrutiny-action-required'] as const,
   myWork: ['dashboard', 'my-work'] as const,
+  issuesSummary: ['dashboard', 'issues-summary'] as const,
+  paymentStatusSummary: ['dashboard', 'payment-status'] as const,
+  upcomingHearings: ['dashboard', 'upcoming-hearings'] as const,
+  recentActivity: ['dashboard', 'recent-activity'] as const,
   cases: (filters: CaseSearchFilters = {}) => ['cases', 'list', filters] as const,
   caseOptions: (filters: CaseSearchFilters = {}) => ['cases', 'options', filters] as const,
   caseDetail: (id: string) => ['cases', 'detail', id] as const,
@@ -43,10 +53,18 @@ export const qk = {
   organizationName: ['organization', 'name'] as const,
   branchAdmins: ['branch-admins'] as const,
   globalSearch: (q: string) => ['search', q] as const,
+  billTypes: (caseType?: BillCaseTypeCategory) => ['bills', 'types', caseType] as const,
+  bills: (filters: BillSearchFilters = {}) => ['bills', 'list', filters] as const,
+  caseBills: (caseId: string) => ['bills', 'case', caseId] as const,
+  billDetail: (id: string) => ['bills', 'detail', id] as const,
+  // Associate's own actionable queue - distinct from `bills` (the admin/branch-admin
+  // cross-case list) since it's always self-scoped regardless of granted scope.
+  billQueue: ['bills', 'queue'] as const,
+  billSummary: ['bills', 'summary'] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
-export const CASE_SCOPES = [['cases'], ['review'], ['dashboard']] as const
+export const CASE_SCOPES = [['cases'], ['review'], ['dashboard'], ['bills']] as const
 
 export function invalidateCaseScopes(queryClient: QueryClient) {
   CASE_SCOPES.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))

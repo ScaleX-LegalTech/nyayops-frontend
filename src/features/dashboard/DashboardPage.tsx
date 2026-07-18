@@ -17,6 +17,7 @@ import {
   Briefcase,
   ClipboardClock,
   ClipboardList,
+  History,
   IndianRupee,
   ShieldAlert,
   Users,
@@ -24,26 +25,31 @@ import {
 import {
   getActivity,
   getCasesByStatus,
+  getIssuesSummary,
   getKpis,
   getMyWork,
   getOverdueCases,
+  getRecentActivity,
   getScrutinyActionRequired,
   getTopCourts,
+  getUpcomingHearings,
 } from '@/lib/api/dashboard'
 import { getOrganizationName } from '@/lib/api/organization'
 import { useAuth } from '@/auth/AuthContext'
 import { usePermissions } from '@/lib/usePermissions'
+import { useUsers } from '@/lib/useUsers'
 import { qk } from '@/lib/queryKeys'
-import { humanize, formatDate } from '@/lib/format'
+import { humanize, formatDate, formatRelative } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { EntityAvatar } from '@/components/ui/Avatar'
 import { EmptyState, Skeleton } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
-import type { Case, Issue, PaymentMilestone } from '@/types'
+import type { Case, Issue, RecentActivityItem } from '@/types'
+import { getBillSummary } from '@/lib/api/bills'
+import { BillQueueCard } from '@/features/bills/BillQueueCard'
 import type { LucideIcon } from 'lucide-react'
 
 // Aggregate dashboard stats don't need to feel real-time - a longer staleTime than
@@ -85,9 +91,78 @@ function ChartSkeleton({ height = 220 }: { height?: number }) {
   return <Skeleton className="w-full" style={{ height }} />
 }
 
+/** Small status-breakdown donut, generalized from the case-status chart above so
+ * issues/payments summaries can reuse the same visual without duplicating the
+ * larger primary "Case snapshot" chart's layout. */
+function StatusDonutCard({
+  title,
+  description,
+  icon,
+  data,
+  isLoading,
+  emptyTitle,
+  emptyDescription,
+}: {
+  title: string
+  description?: string
+  icon: LucideIcon
+  data: { status: string; count: number }[]
+  isLoading?: boolean
+  emptyTitle: string
+  emptyDescription?: string
+}) {
+  const chartData = data.map((d) => ({ name: humanize(d.status), value: d.count }))
+  return (
+    <Card>
+      <CardHeader title={title} description={description} />
+      <CardBody className="border-t border-border">
+        {isLoading ? (
+          <ChartSkeleton height={160} />
+        ) : chartData.length === 0 ? (
+          <EmptyState icon={icon} title={emptyTitle} description={emptyDescription} />
+        ) : (
+          <div className="flex flex-col items-center gap-4 sm:flex-row">
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={38}
+                  outerRadius={64}
+                  paddingAngle={2}
+                  stroke="none"
+                  isAnimationActive={false}
+                >
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <ul className="flex-1 space-y-1.5">
+              {chartData.map((d, i) => (
+                <li key={d.name} className="flex items-center gap-2 text-sm">
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ background: STATUS_COLORS[i % STATUS_COLORS.length] }}
+                  />
+                  <span className="flex-1 text-ink-muted">{d.name}</span>
+                  <span className="font-medium tabular text-ink">{d.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
 /** Row-skeleton placeholder matching CaseListCard's row shape, shown while its
  * backing query is still in flight. */
-function ListRowsSkeleton({ rows = 4 }: { rows?: number }) {
+export function ListRowsSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="divide-y divide-border">
       {Array.from({ length: rows }).map((_, i) => (
@@ -205,44 +280,46 @@ function IssueListCard({ issues, isLoading }: { issues: Issue[]; isLoading?: boo
   )
 }
 
-function PaymentFollowUpCard({
-  milestones,
+function ActivityFeedCard({
+  activity,
   isLoading,
 }: {
-  milestones: PaymentMilestone[]
+  activity: RecentActivityItem[]
   isLoading?: boolean
 }) {
+  const { nameOf } = useUsers()
   return (
     <Card>
       <CardHeader
-        title="Payment follow-ups"
-        description="Fee milestones still awaiting action, on your cases"
+        title="Recent activity"
+        description="Latest events on cases you created or are assigned to"
       />
       <CardBody className="border-t border-border p-0">
         {isLoading ? (
           <ListRowsSkeleton />
-        ) : milestones.length === 0 ? (
+        ) : activity.length === 0 ? (
           <EmptyState
-            icon={IndianRupee}
-            title="Nothing to follow up on"
-            description="No pending fee milestones on your cases."
+            icon={History}
+            title="No activity yet"
+            description="Actions on your cases will show up here."
           />
         ) : (
           <div className="divide-y divide-border">
-            {milestones.map((m) => (
+            {activity.map((item) => (
               <Link
-                key={m.id}
-                to={`/cases/${m.case_id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
+                key={item.id}
+                to={`/cases/${item.case_id}`}
+                className="flex items-start gap-3 px-5 py-3 hover:bg-surface-muted"
               >
-                <span className="grid size-8 shrink-0 place-items-center rounded-control bg-info-soft text-info-strong">
-                  <IndianRupee className="size-4" />
+                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">
+                  <History className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{m.label}</p>
-                  {m.due_stage && <p className="text-xs text-ink-muted">{m.due_stage}</p>}
+                  <p className="truncate text-sm font-medium text-ink">{humanize(item.action_type)}</p>
+                  <p className="text-xs text-ink-muted">
+                    {nameOf(item.actor_id)} · {formatRelative(item.occurred_at)}
+                  </p>
                 </div>
-                <Badge>{humanize(m.status)}</Badge>
               </Link>
             ))}
           </div>
@@ -258,6 +335,11 @@ function MyWorkView() {
   const myWork = useQuery({
     queryKey: qk.myWork,
     queryFn: getMyWork,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const recentActivity = useQuery({
+    queryKey: qk.recentActivity,
+    queryFn: getRecentActivity,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
   const isLoading = myWork.isLoading
@@ -285,18 +367,69 @@ function MyWorkView() {
           emptyTitle="No upcoming hearings"
           showHearingDate
         />
-        <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} isLoading={isLoading} />
+        <BillQueueCard />
       </div>
-      <CaseListCard
-        title="Overdue flags"
-        description="Past their hearing date and not yet closed"
-        cases={data?.overdue_cases ?? []}
-        isLoading={isLoading}
-        emptyTitle="Nothing overdue"
-        emptyDescription="You're on track."
-        showHearingDate
-      />
+      <div className="grid gap-5 lg:grid-cols-2">
+        <CaseListCard
+          title="Overdue flags"
+          description="Past their hearing date and not yet closed"
+          cases={data?.overdue_cases ?? []}
+          isLoading={isLoading}
+          emptyTitle="Nothing overdue"
+          emptyDescription="You're on track."
+          showHearingDate
+        />
+        <ActivityFeedCard
+          activity={recentActivity.data ?? []}
+          isLoading={recentActivity.isLoading}
+        />
+      </div>
     </div>
+  )
+}
+
+/** Org-wide bill counts by status - replaces the old "not tracked yet" stub now that
+ * the Billing module exists. Organization scope only (BillService.summary_for_tenant
+ * rejects an own-scoped caller), which matches this tab already being MD/branch-admin
+ * gated by canSeeOverview below. */
+function PaymentStatusCard() {
+  const { data, isLoading } = useQuery({ queryKey: qk.billSummary, queryFn: getBillSummary })
+  const counts = data?.counts ?? []
+  const countFor = (status: string) =>
+    counts.filter((c) => c.status === status).reduce((sum, c) => sum + c.count, 0)
+
+  return (
+    <Card>
+      <CardHeader
+        title="Payment status"
+        description="Bills by stage, org-wide"
+        action={
+          <Link to="/bills" className="text-sm font-medium text-brand hover:text-brand-strong">
+            Open Bills
+          </Link>
+        }
+      />
+      <CardBody className="border-t border-border">
+        {isLoading ? (
+          <ListRowsSkeleton rows={1} />
+        ) : counts.length === 0 ? (
+          <EmptyState
+            icon={IndianRupee}
+            title="No bills yet"
+            description="Raise a bill from any case to start tracking payment status."
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {(['raised', 'client_contacted', 'proof_uploaded', 'approved'] as const).map((status) => (
+              <div key={status} className="rounded-control border border-border px-3 py-2.5 text-center">
+                <p className="text-2xl font-semibold text-ink">{countFor(status)}</p>
+                <p className="mt-1 text-xs text-ink-muted">{humanize(status)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -331,6 +464,16 @@ function OverviewView() {
   const scrutinyActionRequired = useQuery({
     queryKey: qk.scrutinyActionRequired,
     queryFn: getScrutinyActionRequired,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const upcomingHearings = useQuery({
+    queryKey: qk.upcomingHearings,
+    queryFn: getUpcomingHearings,
+    staleTime: DASHBOARD_STALE_TIME_MS,
+  })
+  const issuesSummary = useQuery({
+    queryKey: qk.issuesSummary,
+    queryFn: getIssuesSummary,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
 
@@ -511,7 +654,7 @@ function OverviewView() {
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Scrutiny action required"
           description="Rejected scrutiny - needs a corrected document and re-approval"
@@ -520,30 +663,28 @@ function OverviewView() {
           emptyTitle="Nothing needs action"
           emptyDescription="No scrutiny has been rejected right now."
         />
+        <CaseListCard
+          title="Upcoming hearings"
+          description="Across the firm, soonest first"
+          cases={upcomingHearings.data ?? []}
+          isLoading={upcomingHearings.isLoading}
+          emptyTitle="No upcoming hearings"
+          showHearingDate
+        />
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Open issues" description="Document Missing / Info Needed / Blocker flags raised across all cases" />
-          <CardBody className="border-t border-border">
-            <EmptyState
-              icon={ClipboardList}
-              title="Not tracked yet"
-              description="This aggregate snapshot isn't wired up yet - see My Work for issues routed to you individually."
-            />
-          </CardBody>
-        </Card>
+        <StatusDonutCard
+          title="Open issues"
+          description="Document Missing / Info Needed / Blocker flags raised across all cases"
+          icon={ClipboardList}
+          data={issuesSummary.data ?? []}
+          isLoading={issuesSummary.isLoading}
+          emptyTitle="No issues raised"
+          emptyDescription="Nothing to flag right now."
+        />
 
-        <Card>
-          <CardHeader title="Payment status" description="Bills sent vs. received vs. overdue, by client" />
-          <CardBody className="border-t border-border">
-            <EmptyState
-              icon={IndianRupee}
-              title="Not tracked yet"
-              description="This aggregate snapshot isn't wired up yet - see My Work for payment follow-ups on your own cases."
-            />
-          </CardBody>
-        </Card>
+        <PaymentStatusCard />
       </div>
     </div>
   )
@@ -601,7 +742,6 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
-            <GlobalSearch />
           </div>
         }
       />

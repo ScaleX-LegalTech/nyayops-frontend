@@ -24,6 +24,26 @@ export interface ActivityMetrics {
   notifications_sent: number
 }
 
+export interface IssuesByStatus {
+  status: string
+  count: number
+}
+
+export interface PaymentStatusSummary {
+  status: string
+  count: number
+}
+
+export interface RecentActivityItem {
+  id: string
+  action_type: string
+  resource_type: string
+  case_id: string
+  actor_id: string
+  comment: string | null
+  occurred_at: string
+}
+
 export interface Issue {
   id: string
   case_id: string
