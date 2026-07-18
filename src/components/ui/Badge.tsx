@@ -9,7 +9,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import type { CaseStatus } from '@/types'
+import type { BillFlowDirection, BillStatus, CaseStatus } from '@/types'
 import { humanize } from '@/lib/format'
 
 export type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
@@ -139,6 +139,38 @@ export function PriorityBadge({ priority }: { priority: string }) {
   return (
     <Capsule tone={tone} icon={TONE_ICON[tone]}>
       {humanize(priority)}
+    </Capsule>
+  )
+}
+
+export const BILL_STATUS_TONE: Record<BillStatus, Tone> = {
+  raised: 'neutral',
+  client_contacted: 'info',
+  proof_uploaded: 'warning',
+  approved: 'success',
+}
+
+export function BillStatusBadge({ status }: { status: BillStatus }) {
+  const tone = BILL_STATUS_TONE[status]
+  return (
+    <Capsule tone={tone} icon={TONE_ICON[tone]}>
+      {humanize(status)}
+    </Capsule>
+  )
+}
+
+const FLOW_DIRECTION_TONE: Record<BillFlowDirection, Tone> = {
+  collection: 'brand',
+  refund: 'accent',
+}
+
+/** Copy is derived from flow_direction, never hardcoded "Client pays" - see
+ * src/features/bills/copy.ts for the same rule applied to longer strings. */
+export function FlowDirectionBadge({ direction }: { direction: BillFlowDirection }) {
+  const tone = FLOW_DIRECTION_TONE[direction]
+  return (
+    <Capsule tone={tone} icon={TONE_ICON[tone]}>
+      {direction === 'refund' ? 'Refund' : 'Collection'}
     </Capsule>
   )
 }

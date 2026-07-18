@@ -29,7 +29,6 @@ import {
   getKpis,
   getMyWork,
   getOverdueCases,
-  getPaymentStatusSummary,
   getRecentActivity,
   getScrutinyActionRequired,
   getTopCourts,
@@ -48,7 +47,9 @@ import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { EntityAvatar } from '@/components/ui/Avatar'
 import { EmptyState, Skeleton } from '@/components/ui/Feedback'
 import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } from '@/lib/chartColors'
-import type { Case, Issue, PaymentMilestone, RecentActivityItem } from '@/types'
+import type { Case, Issue, RecentActivityItem } from '@/types'
+import { getBillSummary } from '@/lib/api/bills'
+import { BillQueueCard } from '@/features/bills/BillQueueCard'
 import type { LucideIcon } from 'lucide-react'
 
 // Aggregate dashboard stats don't need to feel real-time - a longer staleTime than
@@ -161,7 +162,7 @@ function StatusDonutCard({
 
 /** Row-skeleton placeholder matching CaseListCard's row shape, shown while its
  * backing query is still in flight. */
-function ListRowsSkeleton({ rows = 4 }: { rows?: number }) {
+export function ListRowsSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="divide-y divide-border">
       {Array.from({ length: rows }).map((_, i) => (
@@ -279,53 +280,6 @@ function IssueListCard({ issues, isLoading }: { issues: Issue[]; isLoading?: boo
   )
 }
 
-function PaymentFollowUpCard({
-  milestones,
-  isLoading,
-}: {
-  milestones: PaymentMilestone[]
-  isLoading?: boolean
-}) {
-  return (
-    <Card>
-      <CardHeader
-        title="Payment follow-ups"
-        description="Fee milestones still awaiting action, on your cases"
-      />
-      <CardBody className="border-t border-border p-0">
-        {isLoading ? (
-          <ListRowsSkeleton />
-        ) : milestones.length === 0 ? (
-          <EmptyState
-            icon={IndianRupee}
-            title="Nothing to follow up on"
-            description="No pending fee milestones on your cases."
-          />
-        ) : (
-          <div className="divide-y divide-border">
-            {milestones.map((m) => (
-              <Link
-                key={m.id}
-                to={`/cases/${m.case_id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-surface-muted"
-              >
-                <span className="grid size-8 shrink-0 place-items-center rounded-control bg-info-soft text-info-strong">
-                  <IndianRupee className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{m.label}</p>
-                  {m.due_stage && <p className="text-xs text-ink-muted">{m.due_stage}</p>}
-                </div>
-                <Badge>{humanize(m.status)}</Badge>
-              </Link>
-            ))}
-          </div>
-        )}
-      </CardBody>
-    </Card>
-  )
-}
-
 function ActivityFeedCard({
   activity,
   isLoading,
@@ -413,7 +367,7 @@ function MyWorkView() {
           emptyTitle="No upcoming hearings"
           showHearingDate
         />
-        <PaymentFollowUpCard milestones={data?.payment_follow_ups ?? []} isLoading={isLoading} />
+        <BillQueueCard />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <CaseListCard
@@ -431,6 +385,51 @@ function MyWorkView() {
         />
       </div>
     </div>
+  )
+}
+
+/** Org-wide bill counts by status - replaces the old "not tracked yet" stub now that
+ * the Billing module exists. Organization scope only (BillService.summary_for_tenant
+ * rejects an own-scoped caller), which matches this tab already being MD/branch-admin
+ * gated by canSeeOverview below. */
+function PaymentStatusCard() {
+  const { data, isLoading } = useQuery({ queryKey: qk.billSummary, queryFn: getBillSummary })
+  const counts = data?.counts ?? []
+  const countFor = (status: string) =>
+    counts.filter((c) => c.status === status).reduce((sum, c) => sum + c.count, 0)
+
+  return (
+    <Card>
+      <CardHeader
+        title="Payment status"
+        description="Bills by stage, org-wide"
+        action={
+          <Link to="/bills" className="text-sm font-medium text-brand hover:text-brand-strong">
+            Open Bills
+          </Link>
+        }
+      />
+      <CardBody className="border-t border-border">
+        {isLoading ? (
+          <ListRowsSkeleton rows={1} />
+        ) : counts.length === 0 ? (
+          <EmptyState
+            icon={IndianRupee}
+            title="No bills yet"
+            description="Raise a bill from any case to start tracking payment status."
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {(['raised', 'client_contacted', 'proof_uploaded', 'approved'] as const).map((status) => (
+              <div key={status} className="rounded-control border border-border px-3 py-2.5 text-center">
+                <p className="text-2xl font-semibold text-ink">{countFor(status)}</p>
+                <p className="mt-1 text-xs text-ink-muted">{humanize(status)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -475,11 +474,6 @@ function OverviewView() {
   const issuesSummary = useQuery({
     queryKey: qk.issuesSummary,
     queryFn: getIssuesSummary,
-    staleTime: DASHBOARD_STALE_TIME_MS,
-  })
-  const paymentStatusSummary = useQuery({
-    queryKey: qk.paymentStatusSummary,
-    queryFn: getPaymentStatusSummary,
     staleTime: DASHBOARD_STALE_TIME_MS,
   })
 
@@ -690,15 +684,7 @@ function OverviewView() {
           emptyDescription="Nothing to flag right now."
         />
 
-        <StatusDonutCard
-          title="Payment status"
-          description="Fee milestones by status, across all cases"
-          icon={IndianRupee}
-          data={paymentStatusSummary.data ?? []}
-          isLoading={paymentStatusSummary.isLoading}
-          emptyTitle="No payment milestones"
-          emptyDescription="No fee milestones have been created yet."
-        />
+        <PaymentStatusCard />
       </div>
     </div>
   )

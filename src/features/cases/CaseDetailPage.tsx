@@ -47,6 +47,7 @@ import { SCAN_TONE, VersionHistory } from '@/features/documents/DocumentsPage'
 import { CaseLifecycleTracker } from './CaseLifecycleTracker'
 import { LinkCnrDialog } from './LinkCnrDialog'
 import { FileSuitDialog } from './FileSuitDialog'
+import { BillLedgerCard } from '@/features/bills/BillLedgerCard'
 import { cn } from '@/lib/cn'
 
 const REVIEWER_ONLY_STATUSES: CaseStatus[] = ['under_review', 'approved', 'rejected', 'closed']
@@ -494,6 +495,8 @@ export default function CaseDetailPage() {
               </Button>
             </CardBody>
           </Card>
+
+          <BillLedgerCard caseId={caseId} />
         </div>
 
         {hasPermission('cases', 'update') && (
