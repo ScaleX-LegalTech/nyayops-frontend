@@ -97,9 +97,6 @@ export default function CaseDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { nameOf: globalNameOf } = useUsers()
-  const { nameOf: caseNameOf } = useCasePeople(caseId)
-  const nameOf = (id: string) => caseNameOf(id) ?? globalNameOf(id)
   const { hasPermission } = usePermissions()
 
   const [editing, setEditing] = useState(false)
@@ -121,6 +118,22 @@ export default function CaseDetailPage() {
     queryFn: () => getCase(caseId),
   })
 
+  // useCasePeople (GET /cases/{id}/people) already covers everyone a case's own
+  // Owner/Assignees/Reviewed-by/etc. fields can reference, in one small request -
+  // the org-wide useUsers directory (200 users) is only pulled in as a fallback for
+  // an id that source somehow doesn't cover, and only once case-people has actually
+  // loaded (before that, an empty map would look "missing" and fire it needlessly).
+  const { nameOf: caseNameOf, map: casePeopleMap, isSuccess: casePeopleLoaded } = useCasePeople(caseId)
+  const referencedIds = c
+    ? [c.created_by, ...c.assigned_user_ids, c.reviewed_by, c.approved_by, c.rejected_by].filter(
+        (id): id is string => !!id,
+      )
+    : []
+  const needsGlobalDirectory =
+    casePeopleLoaded && referencedIds.some((id) => !casePeopleMap.has(id))
+  const { nameOf: globalNameOf } = useUsers({ enabled: needsGlobalDirectory })
+  const nameOf = (id: string) => caseNameOf(id) ?? globalNameOf(id)
+
   const { data: transitions } = useQuery({
     queryKey: qk.caseTransitions,
     queryFn: getCaseTransitions,
@@ -129,6 +142,10 @@ export default function CaseDetailPage() {
   const { data: documents } = useQuery({
     queryKey: qk.documents({ case_id: caseId }),
     queryFn: () => listDocuments({ case_id: caseId }),
+    // A case that 404s (deleted, wrong id, no access) has no business pulling its
+    // document list too - potentially a lot of rows for nothing the page can even
+    // render, since the early isError/!c return below never gets past LoadingState.
+    enabled: !!c,
   })
 
   function invalidate() {

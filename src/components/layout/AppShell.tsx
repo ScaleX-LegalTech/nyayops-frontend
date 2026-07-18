@@ -7,6 +7,8 @@ import { useAuth } from '@/auth/AuthContext'
 import { enablePushNotifications, ensureFreshPushSubscription, isPushSupported } from '@/lib/push'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { getOrganizationName } from '@/lib/api/organization'
+import { createStreamToken } from '@/lib/api/notifications'
+import { API_BASE_URL } from '@/lib/api/client'
 import { qk } from '@/lib/queryKeys'
 import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
@@ -86,6 +88,47 @@ export function AppShell() {
     navigator.serviceWorker.addEventListener('message', onMessage)
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [queryClient, toast])
+
+  // Live notifications over SSE instead of NotificationsBell's old 15s poll - the
+  // stream token is short-lived (see backend Settings.sse_token_ttl_minutes), so a
+  // dropped connection reconnects with a freshly minted one rather than relying on
+  // EventSource's native retry, which would keep reusing the now-expired token in
+  // its URL and 401 forever.
+  useEffect(() => {
+    let cancelled = false
+    let source: EventSource | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    async function connect() {
+      if (cancelled) return
+      try {
+        const { token } = await createStreamToken()
+        if (cancelled) return
+        source = new EventSource(
+          `${API_BASE_URL}/notifications/stream?token=${encodeURIComponent(token)}`,
+        )
+        source.onmessage = (event) => {
+          if (event.data === 'notification') {
+            queryClient.invalidateQueries({ queryKey: qk.notifications })
+          }
+        }
+        source.onerror = () => {
+          source?.close()
+          source = null
+          if (!cancelled) retryTimer = setTimeout(connect, 3000)
+        }
+      } catch {
+        if (!cancelled) retryTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+
+    return () => {
+      cancelled = true
+      source?.close()
+      if (retryTimer) clearTimeout(retryTimer)
+    }
+  }, [queryClient])
 
   return (
     <div className="flex min-h-screen bg-bg">

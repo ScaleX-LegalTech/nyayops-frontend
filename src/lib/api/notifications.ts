@@ -32,3 +32,7 @@ export function subscribePush(subscription: PushSubscriptionJSON): Promise<void>
 export function unsubscribePush(endpoint: string): Promise<void> {
   return del<void>(`/notifications/push-subscribe?endpoint=${encodeURIComponent(endpoint)}`)
 }
+
+export function createStreamToken(): Promise<{ token: string }> {
+  return post<{ token: string }>('/notifications/stream-token')
+}
