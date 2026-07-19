@@ -127,45 +127,49 @@ export default function CaseThreadPage() {
           : 'animate-rise'
       }
     >
-      {isFullscreen ? (
-        <button
-          type="button"
-          onClick={() => setIsFullscreen(false)}
-          className="mb-4 inline-flex w-fit items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
-        >
-          <ArrowLeft className="size-4" /> {c.title}
-        </button>
-      ) : (
-        <Link
-          to={`/cases/${caseId}`}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
-        >
-          <ArrowLeft className="size-4" /> {c.title}
-        </Link>
-      )}
-
-      <PageHeader
-        title="Activity & comments"
-        description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
-        actions={
-          <button
-            type="button"
-            onClick={() => setIsFullscreen((v) => !v)}
-            aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}
-            className="rounded-control border border-border bg-surface p-2 text-ink-muted hover:text-ink"
+      {!isFullscreen && (
+        <>
+          <Link
+            to={`/cases/${caseId}`}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
           >
-            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-          </button>
-        }
-      />
+            <ArrowLeft className="size-4" /> {c.title}
+          </Link>
+
+          <PageHeader
+            title="Activity & comments"
+            description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
+            actions={
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(true)}
+                aria-label="Full screen"
+                className="rounded-control border border-border bg-surface p-2 text-ink-muted hover:text-ink"
+              >
+                <Maximize2 className="size-4" />
+              </button>
+            }
+          />
+        </>
+      )}
 
       <div
         className={
           isFullscreen
-            ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40'
+            ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40'
             : 'flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40'
         }
       >
+        {isFullscreen && (
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(false)}
+            aria-label="Exit full screen"
+            className="absolute right-3 top-3 z-10 rounded-control border border-border bg-surface p-2 text-ink-muted hover:text-ink"
+          >
+            <Minimize2 className="size-4" />
+          </button>
+        )}
         <div ref={scrollRef} className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
           {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
           {feedItems.map((item, i) => {
