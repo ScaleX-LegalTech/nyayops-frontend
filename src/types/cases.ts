@@ -111,12 +111,23 @@ export interface CaseCommentAttachment {
   storage_key: string
 }
 
+export interface CaseCommentQuotePreview {
+  id: string
+  author_id: string
+  comment_preview: string
+}
+
 export interface CaseComment {
   id: string
   author_id: string
-  comment: string
+  /** Null when deleted_at is set - the tombstone blanks content server-side. */
+  comment: string | null
   created_at: string
   attachments: CaseCommentAttachment[]
+  reply_to: CaseCommentQuotePreview | null
+  deleted_at: string | null
+  /** Precomputed server-side (author: 15 min; org/branch admin: 1 day). */
+  can_delete_for_everyone: boolean
 }
 
 export interface CaseParty {

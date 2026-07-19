@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, FileText, Maximize2, MessageSquarePlus, Minimize2, Paperclip, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import {
+  ArrowLeft,
+  FileText,
+  Maximize2,
+  MessageSquarePlus,
+  Minimize2,
+  MoreVertical,
+  Paperclip,
+  Reply,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { addCaseComment, getCase } from '@/lib/api/cases'
+import { addCaseComment, deleteCaseComment, getCase } from '@/lib/api/cases'
 import { listCaseActivity } from '@/lib/api/audit'
 import { confirmUpload, createUploadUrl, loadDocumentBlob, uploadFileBytes } from '@/lib/api/documents'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
@@ -21,6 +33,8 @@ import { Button } from '@/components/ui/Button'
 import { MentionTextarea } from '@/components/ui/MentionTextarea'
 import { ErrorState, LoadingState } from '@/components/ui/Feedback'
 import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
+import { useFloatingPanel, useOutsideClose } from '@/components/ui/useFloatingPanel'
+import type { CaseComment } from '@/types/cases'
 
 export default function CaseThreadPage() {
   const { caseId = '' } = useParams()
@@ -39,6 +53,7 @@ export default function CaseThreadPage() {
   const attachFileRef = useRef<HTMLInputElement>(null)
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<CaseComment | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data: c, isLoading, isError, error, refetch } = useQuery({
@@ -85,14 +100,26 @@ export default function CaseThreadPage() {
         comment,
         extractMentionedUserIds(comment, people),
         pendingAttachments.map((a) => a.id),
+        replyingTo?.id,
       ),
     onSuccess: () => {
       invalidate()
       setComment('')
       setPendingAttachments([])
+      setReplyingTo(null)
       toast('Comment added.', 'success')
     },
     errorFallback: 'Could not add comment.',
+  })
+
+  const deleteMutation = useMutationWithToast({
+    mutationFn: ({ commentId, scope }: { commentId: string; scope: 'me' | 'everyone' }) =>
+      deleteCaseComment(caseId, commentId, scope),
+    onSuccess: () => {
+      invalidate()
+      toast('Message deleted.', 'success')
+    },
+    errorFallback: 'Could not delete message.',
   })
 
   useEffect(() => {
@@ -115,7 +142,9 @@ export default function CaseThreadPage() {
   const feedItems: FeedItem[] = [
     ...c.comments.map((cm): FeedItem => ({ kind: 'comment', ts: cm.created_at, data: cm })),
     ...(activity ?? [])
-      .filter((log) => log.action_type !== 'CASE_COMMENT_ADDED')
+      .filter(
+        (log) => log.action_type !== 'CASE_COMMENT_ADDED' && log.action_type !== 'CASE_COMMENT_DELETED',
+      )
       .map((log): FeedItem => ({ kind: 'activity', ts: log.occurred_at, data: log })),
   ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
 
@@ -197,13 +226,42 @@ export default function CaseThreadPage() {
           const isGrouped =
             prevItem?.kind === 'comment' && prevItem.data.author_id === item.data.author_id
           const name = nameOf(item.data.author_id)
+          const isDeleted = !!item.data.deleted_at
+
+          if (isDeleted) {
+            return (
+              <div
+                key={`comment-${item.data.id}`}
+                className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}
+              >
+                {!isOwn && (
+                  <PersonAvatar label={name} size="sm" className={isGrouped ? 'invisible' : ''} />
+                )}
+                <div className="max-w-[75%] rounded-card border border-dashed border-border px-3.5 py-2 text-sm italic text-ink-faint">
+                  This message was deleted
+                </div>
+              </div>
+            )
+          }
 
           return (
             <div
               key={`comment-${item.data.id}`}
-              className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}
+              className={`group flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}
             >
               {!isOwn && <PersonAvatar label={name} size="sm" className={isGrouped ? 'invisible' : ''} />}
+              {isOwn && (
+                <CommentMenu
+                  canDeleteForEveryone={item.data.can_delete_for_everyone}
+                  onReply={() => setReplyingTo(item.data)}
+                  onDeleteForMe={() =>
+                    deleteMutation.mutate({ commentId: item.data.id, scope: 'me' })
+                  }
+                  onDeleteForEveryone={() =>
+                    deleteMutation.mutate({ commentId: item.data.id, scope: 'everyone' })
+                  }
+                />
+              )}
               <div
                 className={`max-w-[75%] rounded-card px-3.5 py-2 text-sm ${
                   isOwn
@@ -216,6 +274,18 @@ export default function CaseThreadPage() {
                     className={`mb-0.5 text-xs font-medium ${isOwn ? 'text-white/80' : 'text-ink-muted'}`}
                   >
                     {isOwn ? 'You' : name}
+                  </div>
+                )}
+                {item.data.reply_to && (
+                  <div
+                    className={`mb-1.5 rounded-control border-l-2 px-2 py-1 text-xs ${
+                      isOwn
+                        ? 'border-white/50 bg-white/10 text-white/80'
+                        : 'border-brand/50 bg-surface-muted text-ink-muted'
+                    }`}
+                  >
+                    <div className="font-medium">{nameOf(item.data.reply_to.author_id)}</div>
+                    <div className="truncate">{item.data.reply_to.comment_preview}</div>
                   </div>
                 )}
                 <p className="whitespace-pre-wrap">{item.data.comment}</p>
@@ -250,6 +320,18 @@ export default function CaseThreadPage() {
                   {formatDateTime(item.data.created_at)}
                 </div>
               </div>
+              {!isOwn && (
+                <CommentMenu
+                  canDeleteForEveryone={item.data.can_delete_for_everyone}
+                  onReply={() => setReplyingTo(item.data)}
+                  onDeleteForMe={() =>
+                    deleteMutation.mutate({ commentId: item.data.id, scope: 'me' })
+                  }
+                  onDeleteForEveryone={() =>
+                    deleteMutation.mutate({ commentId: item.data.id, scope: 'everyone' })
+                  }
+                />
+              )}
             </div>
           )
         })}
@@ -268,6 +350,24 @@ export default function CaseThreadPage() {
               }}
               className="shrink-0 space-y-2 border-t border-border bg-surface px-4 py-3"
             >
+              {replyingTo && (
+                <div className="flex items-start gap-2 rounded-control border-l-2 border-brand bg-surface-muted px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-ink">{nameOf(replyingTo.author_id)}</div>
+                    <div className="truncate text-ink-muted">
+                      {replyingTo.comment ?? '[deleted message]'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Cancel reply"
+                    onClick={() => setReplyingTo(null)}
+                    className="shrink-0 text-ink-faint hover:text-danger"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
               <MentionTextarea
                 placeholder="Add a comment… type @ to mention someone"
                 value={comment}
@@ -336,5 +436,70 @@ export default function CaseThreadPage() {
         target={previewTarget}
       />
     </div>
+  )
+}
+
+function CommentMenu({
+  canDeleteForEveryone,
+  onReply,
+  onDeleteForMe,
+  onDeleteForEveryone,
+}: {
+  canDeleteForEveryone: boolean
+  onReply: () => void
+  onDeleteForMe: () => void
+  onDeleteForEveryone: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const { triggerRef, panelRef, pos } = useFloatingPanel<HTMLButtonElement>(open)
+  useOutsideClose(open, [triggerRef, panelRef], () => setOpen(false))
+
+  function run(action: () => void) {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Message actions"
+        className={`mb-1 grid size-7 shrink-0 place-items-center self-start rounded-full text-ink-faint opacity-0 hover:bg-surface-muted hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 ${open ? 'opacity-100' : ''}`}
+      >
+        <MoreVertical className="size-4" />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="fixed w-44 overflow-hidden rounded-card border border-border bg-surface shadow-pop animate-rise"
+            style={{ top: pos.top, left: pos.left, zIndex: 'var(--z-dropdown)' }}
+          >
+            <button
+              onClick={() => run(onReply)}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+            >
+              <Reply className="size-4 text-ink-muted" /> Reply
+            </button>
+            <button
+              onClick={() => run(onDeleteForMe)}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+            >
+              <Trash2 className="size-4 text-ink-muted" /> Delete for me
+            </button>
+            {canDeleteForEveryone && (
+              <button
+                onClick={() => run(onDeleteForEveryone)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-danger hover:bg-surface-muted"
+              >
+                <Trash2 className="size-4" /> Delete for everyone
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
