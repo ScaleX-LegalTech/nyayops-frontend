@@ -132,7 +132,7 @@ export default function CaseThreadPage() {
         description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
       />
 
-      <div className="mx-auto flex h-[70vh] min-h-[420px] max-w-5xl flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40">
+      <div className="flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40">
         <div ref={scrollRef} className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
           {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
           {feedItems.map((item, i) => {
