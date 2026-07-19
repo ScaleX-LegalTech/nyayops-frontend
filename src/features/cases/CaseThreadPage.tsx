@@ -8,7 +8,8 @@ import { confirmUpload, createUploadUrl, loadDocumentBlob, uploadFileBytes } fro
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { formatDateTime } from '@/lib/format'
 import { extractMentionedUserIds } from '@/lib/mentions'
-import { ACTION_ICONS, ACTION_LABELS } from '@/lib/caseActivity'
+import { ACTION_ICONS, describeActivity } from '@/lib/caseActivity'
+import { PersonAvatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/auth/AuthContext'
 import { useUsers } from '@/lib/useUsers'
 import { useCasePeople } from '@/lib/useCasePeople'
@@ -125,65 +126,89 @@ export default function CaseThreadPage() {
         description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
       />
 
-      <div className="mx-auto max-w-3xl space-y-3">
+      <div className="mx-auto max-w-3xl space-y-1">
         {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
-        {feedItems.map((item) =>
-          item.kind === 'comment' ? (
+        {feedItems.map((item, i) => {
+          if (item.kind === 'activity') {
+            const Icon = ACTION_ICONS[item.data.action_type] ?? FileText
+            return (
+              <div
+                key={`activity-${item.data.id}`}
+                className="my-2 flex items-center justify-center gap-2 px-1 py-1 text-center text-xs text-ink-faint"
+              >
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-3 py-1">
+                  <Icon className="size-3 shrink-0" />
+                  <span>
+                    <span className="font-medium text-ink-muted">{nameOf(item.data.actor_id)}</span>{' '}
+                    {describeActivity(item.data, nameOf)}
+                  </span>
+                  <span className="text-ink-faint">· {formatDateTime(item.data.occurred_at)}</span>
+                </span>
+              </div>
+            )
+          }
+
+          const isOwn = item.data.author_id === currentUserId
+          const prevItem = feedItems[i - 1]
+          const isGrouped =
+            prevItem?.kind === 'comment' && prevItem.data.author_id === item.data.author_id
+          const name = nameOf(item.data.author_id)
+
+          return (
             <div
               key={`comment-${item.data.id}`}
-              className="rounded-card border border-border bg-surface px-4 py-3 text-sm text-ink"
+              className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}
             >
-              <div className="mb-1.5 flex items-center gap-2 text-xs text-ink-faint">
-                <span className="font-medium text-ink-muted">{nameOf(item.data.author_id)}</span>
-                <span>·</span>
-                <span>{formatDateTime(item.data.created_at)}</span>
-              </div>
-              {item.data.comment}
-              {item.data.attachments.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {item.data.attachments.map((att) => (
-                    <li key={att.id}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPreviewTarget({
-                            load: () => loadDocumentBlob(att.storage_key),
-                            mimeType: att.mime_type,
-                            title: att.title,
-                          })
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2 py-1 text-xs text-ink-muted hover:text-ink"
-                      >
-                        <FileText className="size-3.5" /> {att.title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            (() => {
-              const Icon = ACTION_ICONS[item.data.action_type] ?? FileText
-              return (
+              {!isOwn && <PersonAvatar label={name} size="sm" className={isGrouped ? 'invisible' : ''} />}
+              <div
+                className={`max-w-[75%] rounded-card px-3.5 py-2 text-sm ${
+                  isOwn
+                    ? 'rounded-br-sm bg-brand text-white'
+                    : 'rounded-bl-sm border border-border bg-surface text-ink'
+                }`}
+              >
+                {!isGrouped && (
+                  <div
+                    className={`mb-0.5 text-xs font-medium ${isOwn ? 'text-white/80' : 'text-ink-muted'}`}
+                  >
+                    {isOwn ? 'You' : name}
+                  </div>
+                )}
+                <p className="whitespace-pre-wrap">{item.data.comment}</p>
+                {item.data.attachments.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {item.data.attachments.map((att) => (
+                      <li key={att.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewTarget({
+                              load: () => loadDocumentBlob(att.storage_key),
+                              mimeType: att.mime_type,
+                              title: att.title,
+                            })
+                          }
+                          className={`inline-flex items-center gap-1.5 rounded-control border px-2 py-1 text-xs ${
+                            isOwn
+                              ? 'border-white/30 bg-white/10 text-white hover:bg-white/20'
+                              : 'border-border bg-surface-muted text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          <FileText className="size-3.5" /> {att.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div
-                  key={`activity-${item.data.id}`}
-                  className="flex items-center gap-3 px-1 py-1 text-sm"
+                  className={`mt-1 text-right text-[10px] ${isOwn ? 'text-white/70' : 'text-ink-faint'}`}
                 >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface-muted text-ink-muted">
-                    <Icon className="size-3.5" />
-                  </span>
-                  <p className="min-w-0 flex-1 text-ink-muted">
-                    <span className="font-medium text-ink">{nameOf(item.data.actor_id)}</span>{' '}
-                    {(ACTION_LABELS[item.data.action_type] ?? item.data.action_type).toLowerCase()}
-                  </p>
-                  <span className="shrink-0 text-xs text-ink-faint">
-                    {formatDateTime(item.data.occurred_at)}
-                  </span>
+                  {formatDateTime(item.data.created_at)}
                 </div>
-              )
-            })()
-          ),
-        )}
+              </div>
+            </div>
+          )
+        })}
 
         {canComment &&
           (c.status === 'closed' ? (
