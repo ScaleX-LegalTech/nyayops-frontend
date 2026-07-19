@@ -17,6 +17,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addCaseComment, deleteCaseComment, getCase } from '@/lib/api/cases'
 import { listCaseActivity } from '@/lib/api/audit'
 import { confirmUpload, createUploadUrl, loadDocumentBlob, uploadFileBytes } from '@/lib/api/documents'
+import { createStreamToken } from '@/lib/api/notifications'
+import { API_BASE_URL } from '@/lib/api/client'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { formatDateTime } from '@/lib/format'
 import { extractMentionedUserIds } from '@/lib/mentions'
@@ -126,6 +128,52 @@ export default function CaseThreadPage() {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [c?.comments.length, activity?.length])
+
+  // Live updates over a WebSocket, scoped to this one case's thread - the server
+  // pushes a payload-free "something changed" ping (never trusted as the payload
+  // itself), same trust model as the notifications SSE stream; a real refetch
+  // always happens over REST. Reconnects with a freshly minted token on drop,
+  // same reasoning as AppShell's notification stream (a stale token in a native
+  // retry would just keep 401ing forever).
+  useEffect(() => {
+    if (!caseId) return
+    let cancelled = false
+    let socket: WebSocket | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    async function connect() {
+      if (cancelled) return
+      try {
+        const { token } = await createStreamToken()
+        if (cancelled) return
+        const wsBase = API_BASE_URL.replace(/^http/, 'ws')
+        socket = new WebSocket(
+          `${wsBase}/review/${caseId}/thread/ws?token=${encodeURIComponent(token)}`,
+        )
+        socket.onmessage = () => {
+          invalidateCaseScopes(queryClient)
+          queryClient.invalidateQueries({ queryKey: qk.caseDetail(caseId) })
+          queryClient.invalidateQueries({ queryKey: qk.caseActivity(caseId) })
+        }
+        socket.onerror = () => {
+          socket?.close()
+        }
+        socket.onclose = () => {
+          socket = null
+          if (!cancelled) retryTimer = setTimeout(connect, 3000)
+        }
+      } catch {
+        if (!cancelled) retryTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+
+    return () => {
+      cancelled = true
+      socket?.close()
+      if (retryTimer) clearTimeout(retryTimer)
+    }
+  }, [caseId, queryClient])
 
   if (isLoading) return <LoadingState />
   if (isError || !c) return <ErrorState error={error} onRetry={refetch} />
