@@ -120,7 +120,13 @@ export default function CaseThreadPage() {
   ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
 
   return (
-    <div className={isFullscreen ? 'fixed inset-0 z-[var(--z-modal)] flex flex-col bg-surface p-4' : 'animate-rise'}>
+    <div
+      className={
+        isFullscreen
+          ? 'fixed inset-x-0 bottom-0 top-16 z-20 flex flex-col bg-surface p-4 lg:left-64'
+          : 'animate-rise'
+      }
+    >
       {isFullscreen ? (
         <button
           type="button"
