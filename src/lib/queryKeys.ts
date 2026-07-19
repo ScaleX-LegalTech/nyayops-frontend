@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type {
+  AuditLogSearchFilters,
   BillCaseTypeCategory,
   BillSearchFilters,
   CaseSearchFilters,
@@ -47,6 +48,7 @@ export const qk = {
   roles: ['roles'] as const,
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
+  auditLogsPage: (filters: AuditLogSearchFilters = {}) => ['audit-logs', 'page', filters] as const,
   notifications: ['notifications'] as const,
   authConfig: ['auth', 'config'] as const,
   organization: ['organization'] as const,
