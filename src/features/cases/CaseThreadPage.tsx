@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ArrowLeft, FileText, MessageSquarePlus, Paperclip, X } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,6 +38,7 @@ export default function CaseThreadPage() {
   >([])
   const attachFileRef = useRef<HTMLInputElement>(null)
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data: c, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.caseDetail(caseId),
@@ -93,6 +94,11 @@ export default function CaseThreadPage() {
     errorFallback: 'Could not add comment.',
   })
 
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [c?.comments.length, activity?.length])
+
   if (isLoading) return <LoadingState />
   if (isError || !c) return <ErrorState error={error} onRetry={refetch} />
 
@@ -126,9 +132,10 @@ export default function CaseThreadPage() {
         description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
       />
 
-      <div className="mx-auto max-w-3xl space-y-1">
-        {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
-        {feedItems.map((item, i) => {
+      <div className="mx-auto flex h-[70vh] min-h-[420px] max-w-5xl flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40">
+        <div ref={scrollRef} className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
+          {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
+          {feedItems.map((item, i) => {
           if (item.kind === 'activity') {
             const Icon = ACTION_ICONS[item.data.action_type] ?? FileText
             return (
@@ -209,24 +216,27 @@ export default function CaseThreadPage() {
             </div>
           )
         })}
+        </div>
 
         {canComment &&
           (c.status === 'closed' ? (
-            <p className="text-sm text-ink-muted">This case is closed — comments are locked.</p>
+            <p className="border-t border-border bg-surface px-4 py-3 text-sm text-ink-muted">
+              This case is closed — comments are locked.
+            </p>
           ) : (
             <form
               onSubmit={(e: FormEvent) => {
                 e.preventDefault()
                 if (comment.trim() && !commentMutation.isPending) commentMutation.mutate()
               }}
-              className="space-y-2 rounded-card border border-border bg-surface px-4 py-3"
+              className="shrink-0 space-y-2 border-t border-border bg-surface px-4 py-3"
             >
               <MentionTextarea
                 placeholder="Add a comment… type @ to mention someone"
                 value={comment}
                 onChange={setComment}
                 people={people}
-                rows={2}
+                rows={1}
               />
               {pendingAttachments.length > 0 && (
                 <ul className="flex flex-wrap gap-1.5">
