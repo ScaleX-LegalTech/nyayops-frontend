@@ -126,6 +126,9 @@ export interface CaseComment {
   attachments: CaseCommentAttachment[]
   reply_to: CaseCommentQuotePreview | null
   deleted_at: string | null
+  /** Only set when someone other than the author deleted it (admin moderation). */
+  deleted_by_name: string | null
+  deleted_by_access: string | null
   /** Precomputed server-side (author: 15 min; org/branch admin: 1 day). */
   can_delete_for_everyone: boolean
 }

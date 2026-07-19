@@ -4,11 +4,11 @@ import {
   ArrowLeft,
   FileText,
   Maximize2,
-  MessageSquarePlus,
   Minimize2,
   MoreVertical,
   Paperclip,
   Reply,
+  Send,
   Trash2,
   X,
 } from 'lucide-react'
@@ -107,9 +107,9 @@ export default function CaseThreadPage() {
       setComment('')
       setPendingAttachments([])
       setReplyingTo(null)
-      toast('Comment added.', 'success')
+      toast('Message sent.', 'success')
     },
-    errorFallback: 'Could not add comment.',
+    errorFallback: 'Could not send message.',
   })
 
   const deleteMutation = useMutationWithToast({
@@ -166,8 +166,8 @@ export default function CaseThreadPage() {
           </Link>
 
           <PageHeader
-            title="Activity & comments"
-            description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
+            title="Case Thread"
+            description={`${c.comments.length} message${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
             actions={
               <button
                 type="button"
@@ -237,8 +237,13 @@ export default function CaseThreadPage() {
                 {!isOwn && (
                   <PersonAvatar label={name} size="sm" className={isGrouped ? 'invisible' : ''} />
                 )}
-                <div className="max-w-[75%] rounded-card border border-dashed border-border px-3.5 py-2 text-sm italic text-ink-faint">
-                  This message was deleted
+                <div
+                  title={!isOwn && isGrouped ? name : undefined}
+                  className="max-w-[75%] rounded-card border border-dashed border-border px-3.5 py-2 text-sm italic text-ink-faint"
+                >
+                  {item.data.deleted_by_name
+                    ? `This message was deleted by ${item.data.deleted_by_name}${item.data.deleted_by_access ? ` (${item.data.deleted_by_access})` : ''}`
+                    : 'This message was deleted'}
                 </div>
               </div>
             )
@@ -263,6 +268,7 @@ export default function CaseThreadPage() {
                 />
               )}
               <div
+                title={!isOwn && isGrouped ? name : undefined}
                 className={`max-w-[75%] rounded-card px-3.5 py-2 text-sm ${
                   isOwn
                     ? 'rounded-br-sm bg-brand text-white'
@@ -340,7 +346,7 @@ export default function CaseThreadPage() {
         {canComment &&
           (c.status === 'closed' ? (
             <p className="border-t border-border bg-surface px-4 py-3 text-sm text-ink-muted">
-              This case is closed — comments are locked.
+              This case is closed — the thread is locked.
             </p>
           ) : (
             <form
@@ -369,7 +375,7 @@ export default function CaseThreadPage() {
                 </div>
               )}
               <MentionTextarea
-                placeholder="Add a comment… type @ to mention someone"
+                placeholder="Type a message… @ to mention someone"
                 value={comment}
                 onChange={setComment}
                 people={people}
@@ -423,7 +429,7 @@ export default function CaseThreadPage() {
                   loading={commentMutation.isPending}
                   disabled={!comment.trim() || attachMutation.isPending}
                 >
-                  <MessageSquarePlus className="size-4" /> Comment
+                  <Send className="size-4" /> Send
                 </Button>
               </div>
             </form>
