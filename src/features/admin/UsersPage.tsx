@@ -44,15 +44,24 @@ import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Tabl
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
 import { displayName } from '@/lib/formatName'
-import type { Branch, SortDir, User, UserSearchFilters, UserSortBy, UserStatus } from '@/types'
+import type {
+  Branch,
+  SortDir,
+  User,
+  UserSearchFilters,
+  UserSortBy,
+  UserStatus,
+  UserStatusFilter,
+} from '@/types'
 
 const PAGE_SIZE = 50
 
-const STATUS_OPTIONS: { value: UserStatus | ''; label: string }[] = [
+const STATUS_OPTIONS: { value: UserStatusFilter | ''; label: string }[] = [
   { value: '', label: 'Any status' },
   { value: 'active', label: 'Active' },
   { value: 'pending', label: 'Pending invitation' },
   { value: 'suspended', label: 'Suspended' },
+  { value: 'frozen', label: 'Frozen' },
 ]
 
 const BASE_SORT_COLUMNS: { key: UserSortBy; label: string }[] = [
@@ -77,15 +86,17 @@ export default function UsersPage() {
   const [freezing, setFreezing] = useState<User | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
+  const [tab, setTab] = useState<'active' | 'past'>('active')
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
   const [branchId, setBranchId] = useState('')
   const [roleId, setRoleId] = useState('')
-  const [status, setStatus] = useState<UserStatus | ''>('')
+  const [status, setStatus] = useState<UserStatusFilter | ''>('')
   const [joinedFrom, setJoinedFrom] = useState('')
   const [joinedTo, setJoinedTo] = useState('')
   const [sortBy, setSortBy] = useState<UserSortBy>('joined_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const isPastMembers = tab === 'past'
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(q), 350)
@@ -97,13 +108,14 @@ export default function UsersPage() {
       q: debouncedQ.trim() || undefined,
       branch_id: branchId || undefined,
       role_id: roleId || undefined,
-      status: status || undefined,
+      status: isPastMembers ? undefined : status || undefined,
       joined_from: joinedFrom || undefined,
       joined_to: joinedTo || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
+      deleted: isPastMembers || undefined,
     }),
-    [debouncedQ, branchId, roleId, status, joinedFrom, joinedTo, sortBy, sortDir],
+    [debouncedQ, branchId, roleId, status, joinedFrom, joinedTo, sortBy, sortDir, isPastMembers],
   )
 
   function toggleSort(col: UserSortBy) {
@@ -172,11 +184,47 @@ export default function UsersPage() {
         title="Users"
         description="People in your organization and their roles."
         actions={
-          <Button onClick={() => setInviting(true)}>
-            <UserPlus className="size-4" /> Invite user
-          </Button>
+          !isPastMembers && (
+            <Button onClick={() => setInviting(true)}>
+              <UserPlus className="size-4" /> Invite user
+            </Button>
+          )
         }
       />
+
+      <div className="mb-4 flex gap-1 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab('active')}
+          className={cn(
+            'border-b-2 px-3 py-2 text-sm font-medium',
+            !isPastMembers
+              ? 'border-brand text-brand-strong'
+              : 'border-transparent text-ink-muted hover:text-ink',
+          )}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('past')}
+          className={cn(
+            'border-b-2 px-3 py-2 text-sm font-medium',
+            isPastMembers
+              ? 'border-brand text-brand-strong'
+              : 'border-transparent text-ink-muted hover:text-ink',
+          )}
+        >
+          Past members
+        </button>
+      </div>
+
+      {isPastMembers && (
+        <p className="mb-4 text-sm text-ink-muted">
+          People who've been removed from your organization - read-only, kept so their past
+          activity (cases, documents, audit history) still shows their name instead of a raw id.
+        </p>
+      )}
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="min-w-64 flex-1">
@@ -214,15 +262,20 @@ export default function UsersPage() {
             ))}
           </Select>
         </Field>
-        <Field label="Status" className="w-44">
-          <Select value={status} onChange={(e) => setStatus(e.target.value as UserStatus | '')}>
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {!isPastMembers && (
+          <Field label="Status" className="w-44">
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as UserStatusFilter | '')}
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Joined from">
           <DatePicker value={joinedFrom} onChange={setJoinedFrom} />
         </Field>
@@ -253,7 +306,10 @@ export default function UsersPage() {
         <ErrorState error={error} onRetry={refetch} />
       ) : users.length === 0 ? (
         <TableWrap>
-          <EmptyState icon={Users} title="No users yet" />
+          <EmptyState
+            icon={Users}
+            title={isPastMembers ? 'No past members' : 'No users yet'}
+          />
         </TableWrap>
       ) : (
         <>
@@ -268,7 +324,7 @@ export default function UsersPage() {
                       onClick={() => toggleSort(col.key)}
                       className="flex items-center gap-1 hover:text-ink"
                     >
-                      {col.label}
+                      {col.key === 'joined_at' && isPastMembers ? 'Left on' : col.label}
                       {sortBy === col.key ? (
                         sortDir === 'asc' ? (
                           <ArrowUp className="size-3.5" />
@@ -295,12 +351,20 @@ export default function UsersPage() {
                       <span className="font-medium text-ink">{displayName(u)}</span>
                     </div>
                   </Td>
-                  <Td className="text-ink-muted">{u.email}</Td>
+                  <Td className="text-ink-muted">
+                    {u.email.endsWith('@deleted.nyayops.internal') ? (
+                      <span className="text-ink-faint">Email freed for reuse</span>
+                    ) : (
+                      u.email
+                    )}
+                  </Td>
                   {!isBranchAdmin && (
                     <Td className="text-ink-muted">{branchName(u.branch_id)}</Td>
                   )}
                   <Td className="text-ink-muted">
-                    {new Date(u.created_at).toLocaleDateString()}
+                    {isPastMembers && u.deleted_at
+                      ? new Date(u.deleted_at).toLocaleDateString()
+                      : new Date(u.created_at).toLocaleDateString()}
                   </Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
@@ -343,22 +407,26 @@ export default function UsersPage() {
                   </Td>
                   <Td>
                     <div className="flex justify-end">
-                      <RowActionsMenu
-                        isSelf={u.id === currentUserId}
-                        isAdminRow={u.is_org_admin || u.is_branch_admin}
-                        canManageAccess={
-                          isManagingDirector ||
-                          (isBranchAdmin && !(u.is_org_admin || u.is_branch_admin))
-                        }
-                        status={u.status}
-                        isRestricted={u.is_restricted}
-                        onManageRoles={() => setManagingRoles(u)}
-                        onResetPassword={() => setResettingPassword(u)}
-                        onEdit={() => setEditing(u)}
-                        onSuspend={() => setSuspending(u)}
-                        onFreeze={() => setFreezing(u)}
-                        onDelete={() => setDeleting(u)}
-                      />
+                      {isPastMembers ? (
+                        <span className="text-ink-faint">—</span>
+                      ) : (
+                        <RowActionsMenu
+                          isSelf={u.id === currentUserId}
+                          isAdminRow={u.is_org_admin || u.is_branch_admin}
+                          canManageAccess={
+                            isManagingDirector ||
+                            (isBranchAdmin && !(u.is_org_admin || u.is_branch_admin))
+                          }
+                          status={u.status}
+                          isRestricted={u.is_restricted}
+                          onManageRoles={() => setManagingRoles(u)}
+                          onResetPassword={() => setResettingPassword(u)}
+                          onEdit={() => setEditing(u)}
+                          onSuspend={() => setSuspending(u)}
+                          onFreeze={() => setFreezing(u)}
+                          onDelete={() => setDeleting(u)}
+                        />
+                      )}
                     </div>
                   </Td>
                 </Tr>
