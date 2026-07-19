@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, FileText, MessageSquarePlus, Paperclip, X } from 'lucide-react'
+import { ArrowLeft, FileText, Maximize2, MessageSquarePlus, Minimize2, Paperclip, X } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addCaseComment, getCase } from '@/lib/api/cases'
@@ -38,6 +38,7 @@ export default function CaseThreadPage() {
   >([])
   const attachFileRef = useRef<HTMLInputElement>(null)
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data: c, isLoading, isError, error, refetch } = useQuery({
@@ -119,20 +120,46 @@ export default function CaseThreadPage() {
   ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
 
   return (
-    <div className="animate-rise">
-      <Link
-        to={`/cases/${caseId}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
-      >
-        <ArrowLeft className="size-4" /> {c.title}
-      </Link>
+    <div className={isFullscreen ? 'fixed inset-0 z-[var(--z-modal)] flex flex-col bg-surface p-4' : 'animate-rise'}>
+      {isFullscreen ? (
+        <button
+          type="button"
+          onClick={() => setIsFullscreen(false)}
+          className="mb-4 inline-flex w-fit items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
+        >
+          <ArrowLeft className="size-4" /> {c.title}
+        </button>
+      ) : (
+        <Link
+          to={`/cases/${caseId}`}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
+        >
+          <ArrowLeft className="size-4" /> {c.title}
+        </Link>
+      )}
 
       <PageHeader
         title="Activity & comments"
         description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'} · ${feedItems.length} event${feedItems.length === 1 ? '' : 's'} total`}
+        actions={
+          <button
+            type="button"
+            onClick={() => setIsFullscreen((v) => !v)}
+            aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}
+            className="rounded-control border border-border bg-surface p-2 text-ink-muted hover:text-ink"
+          >
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
+        }
       />
 
-      <div className="flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40">
+      <div
+        className={
+          isFullscreen
+            ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40'
+            : 'flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-card border border-border bg-surface-muted/40'
+        }
+      >
         <div ref={scrollRef} className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
           {feedItems.length === 0 && <p className="text-sm text-ink-muted">No activity yet.</p>}
           {feedItems.map((item, i) => {
