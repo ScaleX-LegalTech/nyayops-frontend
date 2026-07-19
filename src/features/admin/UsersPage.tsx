@@ -37,6 +37,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Field, Input, Select } from '@/components/ui/Field'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { Badge } from '@/components/ui/Badge'
 import { PersonAvatar } from '@/components/ui/Avatar'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
@@ -54,16 +55,18 @@ const STATUS_OPTIONS: { value: UserStatus | ''; label: string }[] = [
   { value: 'suspended', label: 'Suspended' },
 ]
 
-const SORT_COLUMNS: { key: UserSortBy; label: string }[] = [
+const BASE_SORT_COLUMNS: { key: UserSortBy; label: string }[] = [
   { key: 'name', label: 'Name' },
   { key: 'email', label: 'Email' },
-  { key: 'branch', label: 'Branch' },
-  { key: 'joined_at', label: 'Joined' },
 ]
+
+const BRANCH_SORT_COLUMN: { key: UserSortBy; label: string } = { key: 'branch', label: 'Branch' }
+
+const JOINED_SORT_COLUMN: { key: UserSortBy; label: string } = { key: 'joined_at', label: 'Joined' }
 
 export default function UsersPage() {
   const queryClient = useQueryClient()
-  const { user, isManagingDirector } = useAuth()
+  const { user, isManagingDirector, isBranchAdmin } = useAuth()
   const currentUserId = user?.sub
   const [inviting, setInviting] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
@@ -71,6 +74,7 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState<User | null>(null)
   const [resettingPassword, setResettingPassword] = useState<User | null>(null)
   const [suspending, setSuspending] = useState<User | null>(null)
+  const [freezing, setFreezing] = useState<User | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   const [q, setQ] = useState('')
@@ -143,6 +147,9 @@ export default function UsersPage() {
   const branchName = (id: string | null) =>
     id ? branchesQuery.data?.find((b) => b.id === id)?.name ?? id.slice(0, 6) : 'Org-wide'
   const hasFilters = Boolean(q || branchId || roleId || status || joinedFrom || joinedTo)
+  const sortColumns = isBranchAdmin
+    ? [...BASE_SORT_COLUMNS, JOINED_SORT_COLUMN]
+    : [...BASE_SORT_COLUMNS, BRANCH_SORT_COLUMN, JOINED_SORT_COLUMN]
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -217,10 +224,10 @@ export default function UsersPage() {
           </Select>
         </Field>
         <Field label="Joined from">
-          <Input type="date" value={joinedFrom} onChange={(e) => setJoinedFrom(e.target.value)} />
+          <DatePicker value={joinedFrom} onChange={setJoinedFrom} />
         </Field>
         <Field label="Joined to">
-          <Input type="date" value={joinedTo} onChange={(e) => setJoinedTo(e.target.value)} />
+          <DatePicker value={joinedTo} onChange={setJoinedTo} />
         </Field>
         {hasFilters && (
           <Button
@@ -254,7 +261,7 @@ export default function UsersPage() {
           <Table>
             <THead>
               <Tr>
-                {SORT_COLUMNS.map((col) => (
+                {sortColumns.map((col) => (
                   <Th key={col.key}>
                     <button
                       type="button"
@@ -289,7 +296,9 @@ export default function UsersPage() {
                     </div>
                   </Td>
                   <Td className="text-ink-muted">{u.email}</Td>
-                  <Td className="text-ink-muted">{branchName(u.branch_id)}</Td>
+                  {!isBranchAdmin && (
+                    <Td className="text-ink-muted">{branchName(u.branch_id)}</Td>
+                  )}
                   <Td className="text-ink-muted">
                     {new Date(u.created_at).toLocaleDateString()}
                   </Td>
@@ -337,12 +346,17 @@ export default function UsersPage() {
                       <RowActionsMenu
                         isSelf={u.id === currentUserId}
                         isAdminRow={u.is_org_admin || u.is_branch_admin}
-                        canSuspend={isManagingDirector}
+                        canManageAccess={
+                          isManagingDirector ||
+                          (isBranchAdmin && !(u.is_org_admin || u.is_branch_admin))
+                        }
                         status={u.status}
+                        isRestricted={u.is_restricted}
                         onManageRoles={() => setManagingRoles(u)}
                         onResetPassword={() => setResettingPassword(u)}
                         onEdit={() => setEditing(u)}
                         onSuspend={() => setSuspending(u)}
+                        onFreeze={() => setFreezing(u)}
                         onDelete={() => setDeleting(u)}
                       />
                     </div>
@@ -456,6 +470,35 @@ export default function UsersPage() {
           )}
         </p>
       </Dialog>
+      <Dialog
+        open={!!freezing}
+        onClose={() => setFreezing(null)}
+        title={freezing?.is_restricted ? 'Unfreeze user' : 'Freeze user'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setFreezing(null)}>
+              Cancel
+            </Button>
+            <FreezeButton user={freezing} onDone={() => { invalidate(); setFreezing(null) }} />
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          {freezing?.is_restricted ? (
+            <>
+              Restore <span className="font-medium text-ink">{freezing?.full_name}</span>'s
+              ability to make changes?
+            </>
+          ) : (
+            <>
+              Freeze <span className="font-medium text-ink">{freezing?.full_name}</span> to
+              read-only? They can still sign in and view data, but can't make any changes until
+              unfrozen.
+            </>
+          )}
+        </p>
+      </Dialog>
     </div>
   )
 }
@@ -463,42 +506,47 @@ export default function UsersPage() {
 function RowActionsMenu({
   isSelf,
   isAdminRow,
-  canSuspend: canSuspendAtAll,
+  canManageAccess: canManageAccessAtAll,
   status,
+  isRestricted,
   onManageRoles,
   onResetPassword,
   onEdit,
   onSuspend,
+  onFreeze,
   onDelete,
 }: {
   isSelf: boolean
   isAdminRow: boolean
-  /** Only the Managing Director can suspend/reinstate login access - a Branch Admin
-   * calling PUT /users/{id} with is_active silently has it dropped server-side
-   * (UserService.update_user), so hide the action entirely rather than showing a
-   * false-success toast that changed nothing. */
-  canSuspend: boolean
+  /** The Managing Director can freeze/suspend anyone; a Branch Admin can do the same
+   * only for non-admin users within their own branch - UserService.update_user
+   * enforces the same scoping server-side, so this just keeps the UI from offering
+   * an action that would silently no-op. */
+  canManageAccess: boolean
   status: UserStatus
+  isRestricted: boolean
   onManageRoles: () => void
   onResetPassword: () => void
   onEdit: () => void
   onSuspend: () => void
+  onFreeze: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
   const { triggerRef, panelRef, pos } = useFloatingPanel<HTMLButtonElement>(open)
   useOutsideClose(open, [triggerRef, panelRef], () => setOpen(false))
 
-  // A user can't manage their own account-level access (delete/suspend) - doing so
-  // from the row they're viewing would either lock them out or need a UI for
-  // "are you sure you want to delete yourself", neither of which is sound. Org admins
-  // and branch admins already sit above role-based access, so per-role assignment to
-  // them is blocked (backend enforces this too - see UserService.assign_roles).
+  // A user can't manage their own account-level access (delete/suspend/freeze) -
+  // doing so from the row they're viewing would either lock them out or need a UI
+  // for "are you sure you want to delete yourself", neither of which is sound. Org
+  // admins and branch admins already sit above role-based access, so per-role
+  // assignment to them is blocked (backend enforces this too - see
+  // UserService.assign_roles).
   const canManageRoles = !isAdminRow
-  const canSuspend = canSuspendAtAll && !isSelf
+  const canManageAccess = canManageAccessAtAll && !isSelf
   const canDelete = !isSelf
 
-  if (!canManageRoles && !canSuspend && !canDelete) {
+  if (!canManageRoles && !canManageAccess && !canDelete) {
     return (
       <Button size="icon" variant="ghost" disabled aria-label="No actions available">
         <MoreVertical className="size-4" />
@@ -549,10 +597,19 @@ function RowActionsMenu({
           >
             <Pencil className="size-4 text-ink-muted" /> Edit user
           </button>
-          {canSuspend && (
+          {canManageAccess && (
+            <button
+              onClick={() => run(onFreeze)}
+              className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+            >
+              <Lock className="size-4 text-ink-muted" />
+              {isRestricted ? 'Unfreeze user' : 'Freeze user (read-only)'}
+            </button>
+          )}
+          {canManageAccess && (
             <button
               onClick={() => run(onSuspend)}
-              className="flex w-full items-center gap-2.5 border-t border-border px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink hover:bg-surface-muted"
             >
               {status === 'suspended' ? (
                 <>
@@ -681,13 +738,17 @@ function InviteDialog({
               <input
                 type="checkbox"
                 checked={isBranchAdmin}
-                onChange={(e) => setIsBranchAdmin(e.target.checked)}
+                onChange={(e) => {
+                  setIsBranchAdmin(e.target.checked)
+                  if (e.target.checked) setRoleIds([])
+                }}
                 disabled={!branchId}
               />
               Branch Admin (manages only the selected branch)
             </label>
           </>
         )}
+        {!isBranchAdmin && (
         <Field label="Roles" hint="Without a role the user will be locked out of most pages.">
           {roles.length === 0 ? (
             <p className="text-sm text-ink-muted">No roles defined yet.</p>
@@ -720,6 +781,7 @@ function InviteDialog({
             </div>
           )}
         </Field>
+        )}
       </form>
     </Dialog>
   )
@@ -754,9 +816,13 @@ function EditUserDialog({
         phone: phone || undefined,
         name_prefix: namePrefix || undefined,
         name_suffix: nameSuffix || undefined,
-        is_org_admin: isAdmin,
         ...(isManagingDirector
-          ? { branch_id: branchId || null, is_branch_admin: isBranchAdmin, is_restricted: isRestricted }
+          ? {
+              is_org_admin: isAdmin,
+              branch_id: branchId || null,
+              is_branch_admin: isBranchAdmin,
+              is_restricted: isRestricted,
+            }
           : {}),
       }),
     onSuccess: () => {
@@ -802,16 +868,16 @@ function EditUserDialog({
         <Field label="Name suffix" hint='Optional, e.g. "(Intern)"'>
           <Input value={nameSuffix} onChange={(e) => setNameSuffix(e.target.value)} />
         </Field>
-        <label className="flex items-center gap-2.5 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={isAdmin}
-            onChange={(e) => setIsAdmin(e.target.checked)}
-          />
-          Managing Director (organization-wide administrator)
-        </label>
         {isManagingDirector && (
           <>
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={isAdmin}
+                onChange={(e) => setIsAdmin(e.target.checked)}
+              />
+              Managing Director (organization-wide administrator)
+            </label>
             <Field label="Branch" hint="Leave unset for an org-wide user.">
               <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
                 <option value="">Org-wide (no branch)</option>
@@ -974,6 +1040,28 @@ function SuspendButton({ user, onDone }: { user: User | null; onDone: () => void
       onClick={() => mutation.mutate()}
     >
       {reinstating ? 'Reinstate' : 'Suspend'}
+    </Button>
+  )
+}
+
+function FreezeButton({ user, onDone }: { user: User | null; onDone: () => void }) {
+  const { toast } = useToast()
+  const unfreezing = !!user?.is_restricted
+  const mutation = useMutationWithToast({
+    mutationFn: () => updateUser(user!.id, { is_restricted: !unfreezing }),
+    onSuccess: () => {
+      toast(unfreezing ? 'User unfrozen.' : 'User frozen to read-only.', 'success')
+      onDone()
+    },
+    errorFallback: unfreezing ? 'Could not unfreeze user.' : 'Could not freeze user.',
+  })
+  return (
+    <Button
+      variant={unfreezing ? 'primary' : 'danger'}
+      loading={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      {unfreezing ? 'Unfreeze' : 'Freeze'}
     </Button>
   )
 }
