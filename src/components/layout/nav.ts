@@ -1,4 +1,5 @@
 import {
+  Bot,
   Briefcase,
   ClipboardCheck,
   FileText,
@@ -54,6 +55,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Bills',
         icon: IndianRupee,
         permission: { resource: 'bills', action: 'read' },
+      },
+      {
+        to: '/ask-nyayops',
+        label: 'Ask NyayOps',
+        icon: Bot,
+        permission: { resource: 'assistant', action: 'use' },
       },
     ],
   },

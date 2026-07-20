@@ -102,6 +102,95 @@
     animation: rise 0.36s var(--ease-out-quint) both;
   }
 
+  /* Chat turn entrance - a shade quieter than .animate-rise (page/section
+     reveals), since this fires once per message in a fast-moving list. */
+  @keyframes message-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-message-in {
+    animation: message-in 0.28s var(--ease-out-quint) both;
+  }
+
+  /* NyayOpsMark's "thinking" loop - traces the N stroke on with the pathLength=1
+     dash trick, then continues the offset past 0 to erase it the same
+     direction it drew, so the cycle has no visible reset/snap. */
+  @keyframes nyayops-mark-draw {
+    0% {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+    }
+    45%,
+    60% {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dasharray: 1;
+      stroke-dashoffset: -1;
+    }
+  }
+
+  .nyayops-mark-path {
+    animation: nyayops-mark-draw 2.2s var(--ease-out-quint) infinite;
+  }
+
+  @keyframes nyayops-mark-dot-a {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    12%,
+    92% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes nyayops-mark-dot-b {
+    0%,
+    42% {
+      opacity: 0;
+    }
+    58%,
+    88% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .nyayops-mark-dot-a {
+    animation: nyayops-mark-dot-a 2.2s ease-in-out infinite;
+  }
+
+  .nyayops-mark-dot-b {
+    animation: nyayops-mark-dot-b 2.2s ease-in-out infinite;
+  }
+
+  /* Launcher FAB idle breathing - deliberately subtle (enterprise product,
+     not a consumer app), just enough to read as "alive" at rest. */
+  @keyframes nyayops-fab-breathe {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.045);
+    }
+  }
+
+  .animate-fab-breathe {
+    animation: nyayops-fab-breathe 3.2s ease-in-out infinite;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-strong) transparent;

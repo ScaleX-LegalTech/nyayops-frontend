@@ -37,6 +37,7 @@ export const router = createBrowserRouter([
           },
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'bills', ...page(() => import('@/features/bills/BillsPage')) },
+          { path: 'ask-nyayops', ...page(() => import('@/features/ask-nyayops/AskNyayOpsPage')) },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },
           { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },

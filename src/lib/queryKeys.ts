@@ -57,6 +57,8 @@ export const qk = {
   // cross-case list) since it's always self-scoped regardless of granted scope.
   billQueue: ['bills', 'queue'] as const,
   billSummary: ['bills', 'summary'] as const,
+  askNyayOpsConversations: ['ask-nyayops', 'conversations'] as const,
+  askNyayOpsConversation: (id: string) => ['ask-nyayops', 'conversations', id] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
