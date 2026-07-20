@@ -211,13 +211,13 @@ export function addCaseComment(
   comment: string,
   mentionedUserIds?: string[],
   attachmentDocumentIds?: string[],
-  replyToCommentId?: string,
+  replyToMessageId?: string,
 ): Promise<Case> {
   return post<Case>(`/review/${caseId}/comments`, {
     comment,
     mentioned_user_ids: mentionedUserIds ?? [],
     attachment_document_ids: attachmentDocumentIds ?? [],
-    reply_to_comment_id: replyToCommentId ?? null,
+    reply_to_message_id: replyToMessageId ?? null,
   })
 }
 

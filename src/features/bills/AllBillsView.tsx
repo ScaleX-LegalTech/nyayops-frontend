@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { IndianRupee } from 'lucide-react'
+import { IndianRupee, MessageSquare } from 'lucide-react'
 import { listBills } from '@/lib/api/bills'
 import { listBranches } from '@/lib/api/admin'
 import { qk } from '@/lib/queryKeys'
@@ -149,6 +149,7 @@ export function AllBillsView() {
                 <Th>Amount</Th>
                 <Th>Direction</Th>
                 <Th>Status</Th>
+                <Th />
               </Tr>
             </THead>
             <TBody>
@@ -179,6 +180,16 @@ export function AllBillsView() {
                   </Td>
                   <Td>
                     <BillStatusBadge status={bill.status} />
+                  </Td>
+                  <Td>
+                    <Link
+                      to={`/bills/${bill.id}/thread`}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Open chat"
+                      className="grid size-8 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-brand"
+                    >
+                      <MessageSquare className="size-4" />
+                    </Link>
                   </Td>
                 </Tr>
               ))}

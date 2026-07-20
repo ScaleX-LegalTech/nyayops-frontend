@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { IndianRupee } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { IndianRupee, MessageSquare } from 'lucide-react'
 import { listBillsForCase } from '@/lib/api/bills'
 import { qk } from '@/lib/queryKeys'
 import { usePermissions } from '@/lib/usePermissions'
@@ -17,11 +18,16 @@ export function BillLedgerCard({ caseId }: { caseId: string }) {
   const { hasPermission } = usePermissions()
   const [raising, setRaising] = useState(false)
 
+  const canView = hasPermission('bills', 'read')
+
   const { data, isLoading } = useQuery({
     queryKey: qk.caseBills(caseId),
     queryFn: () => listBillsForCase(caseId),
+    enabled: canView,
   })
   const bills = data ?? []
+
+  if (!canView) return null
 
   return (
     <Card>
@@ -60,6 +66,13 @@ export function BillLedgerCard({ caseId }: { caseId: string }) {
                 </div>
                 <FlowDirectionBadge direction={bill.flow_direction} />
                 <BillStatusBadge status={bill.status} />
+                <Link
+                  to={`/cases/bills/${bill.id}/thread`}
+                  aria-label="Open chat"
+                  className="grid size-8 shrink-0 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-brand"
+                >
+                  <MessageSquare className="size-4" />
+                </Link>
               </div>
             ))}
           </div>

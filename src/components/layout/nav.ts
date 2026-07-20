@@ -2,9 +2,12 @@ import {
   Briefcase,
   ClipboardCheck,
   FileText,
+  Gavel,
   IndianRupee,
   LayoutDashboard,
+  MessageSquare,
   ScrollText,
+  Search,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -55,6 +58,11 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IndianRupee,
         permission: { resource: 'bills', action: 'read' },
       },
+      { to: '/chats', label: 'Chats', icon: MessageSquare },
+      // Public court data, not case-scoped - no permission gate, everyone in the
+      // tenant sees the same thing.
+      { to: '/cause-list', label: 'Cause list', icon: Gavel },
+      { to: '/cnr-lookup', label: 'CNR lookup', icon: Search },
     ],
   },
   {

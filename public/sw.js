@@ -10,10 +10,16 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 function resourceLink(eventType, payload) {
   switch (eventType) {
     case 'notification.case_reassigned':
-    case 'notification.case_comment_added':
-    case 'notification.case_comment_mention':
     case 'notification.hearing_reminder':
       return payload && payload.case_id ? '/cases/' + payload.case_id : '/dashboard'
+    case 'notification.case_comment_added':
+    case 'notification.case_comment_mention':
+    case 'notification.case_comment_reply':
+      return payload && payload.case_id ? '/cases/' + payload.case_id + '/thread' : '/dashboard'
+    case 'notification.bill_comment_added':
+    case 'notification.bill_comment_mention':
+    case 'notification.bill_comment_reply':
+      return payload && payload.bill_id ? '/bills/' + payload.bill_id + '/thread' : '/dashboard'
     case 'notification.document_uploaded':
     case 'notification.document_quarantined':
       return '/documents'

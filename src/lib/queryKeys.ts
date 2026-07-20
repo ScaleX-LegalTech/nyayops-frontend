@@ -63,6 +63,11 @@ export const qk = {
   // cross-case list) since it's always self-scoped regardless of granted scope.
   billQueue: ['bills', 'queue'] as const,
   billSummary: ['bills', 'summary'] as const,
+  threadInbox: ['threads', 'inbox'] as const,
+  causeList: (date?: string, scope?: 'mine' | 'all') =>
+    ['cause-list', date ?? 'today', scope ?? 'all'] as const,
+  cnrLookupBusinessDetail: (cnr: string, section: string, row: number) =>
+    ['cnr-lookup', 'business', cnr, section, row] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
