@@ -1,15 +1,16 @@
 # AGENTS.md — `src/components/ui/`
 
+See `../../../AGENTS.md` for stack/architecture context.
+
 ## Owns
 
-The entire design-system primitive layer — **no external UI kit is used**; this directory is the
-only place base visual components should be defined.
+Entire design-system primitive layer — no external UI kit; only place base visual components
+should be defined.
 
-- `Button.tsx` — variants `primary|secondary|ghost|danger|subtle`, sizes `sm|md|lg|icon`, `loading`
-  prop, `forwardRef`.
-- `Badge.tsx` — `Badge` (neutral chip), `StatusBadge`/`PriorityBadge` (tone + icon pairing — see
-  Architectural constraints), exported `Tone`/`TONES`/`DOT_TONE`/`STATUS_TONE` maps reused
-  elsewhere.
+- `Button.tsx` — variants `primary|secondary|ghost|danger|subtle`, sizes `sm|md|lg|icon`,
+  `loading` prop, `forwardRef`.
+- `Badge.tsx` — `Badge` (neutral chip), `StatusBadge`/`PriorityBadge` (tone + icon pairing),
+  exported `Tone`/`TONES`/`DOT_TONE`/`STATUS_TONE` maps reused elsewhere.
 - `Card.tsx` — `Card`, `CardHeader`, `CardBody`, `CardDivider`.
 - `Dialog.tsx` — portaled modal, focus trap, Escape-to-close, body-scroll lock, focus restore.
 - `DocumentPreviewDialog.tsx` — wraps `Dialog`, source-agnostic `PreviewTarget` interface
@@ -17,72 +18,51 @@ only place base visual components should be defined.
 - `Table.tsx` — `TableWrap`, `Table`, `THead` (sticky), `TBody`, `Tr`, `Th`, `Td`.
 - `Toast.tsx` — `ToastProvider`/`useToast()`, portaled bottom-right stack, tones
   `success|error|info`, 4500ms auto-dismiss.
-- `Avatar.tsx` — `PersonAvatar` (circle) vs `EntityAvatar` (square) — deliberate shape distinction.
-- `DatePicker.tsx` — custom-portaled `react-day-picker` wrapper with a themed dropdown.
+- `Avatar.tsx` — `PersonAvatar` (circle) vs `EntityAvatar` (square), deliberate shape distinction.
+- `DatePicker.tsx` — custom-portaled `react-day-picker` wrapper, themed dropdown.
 - `Field.tsx` — `Input`, `Textarea`, custom portaled `Select`, `Label`, `Field` wrapper.
-- `Feedback.tsx` — `Spinner`, `LoadingState`, `Skeleton`, `EmptyState`, `ErrorState` (tailored copy
-  for `ApiError` 403s vs generic errors).
+- `Feedback.tsx` — `Spinner`, `LoadingState`, `Skeleton`, `EmptyState`, `ErrorState` (tailored
+  copy for `ApiError` 403s vs generic errors).
 - `PageHeader.tsx` — title + accent underline + description + actions row.
 - `Tabs.tsx` — `role="tablist"` tab bar with optional count badges.
 - `MentionTextarea.tsx` — `@name` autocomplete textarea.
-- `UserMultiSelect.tsx` — searchable checkbox list of candidates for a given `caseIds` prop.
-  `source` prop picks the backing endpoint: `'assignable'` (default, `GET
-  /cases/assignable-people`, branch-scoped, not a tenant-wide dump) for picking someone *new*
-  onto a case; `'case-people'` (`GET /cases/{id}/people`, single case only) wherever the
-  selection itself grants case visibility — a bill's `associate_id` is the only access gate
-  `BillService` checks for non-admins, so `RaiseBillDialog` uses `'case-people'` to stop a
-  branch-mate who isn't on the case from being handed that case's title/client name through
-  their bill queue. Selected rows float to the top; degrades gracefully when the fetch isn't
-  permitted.
+- `UserMultiSelect.tsx` — searchable checkbox list of candidates for a `caseIds` prop. `source`
+  picks the backing endpoint: `'assignable'` (default, `GET /cases/assignable-people`,
+  branch-scoped) for picking someone *new* onto a case; `'case-people'` (`GET
+  /cases/{id}/people`, single case) wherever the selection grants case visibility — e.g. a
+  bill's `associate_id` is `BillService`'s only access gate for non-admins, so
+  `RaiseBillDialog` uses `'case-people'` to stop a branch-mate not on the case from seeing its
+  title/client via the bill queue. Selected rows float to top; degrades gracefully if fetch
+  isn't permitted.
 - `useFloatingPanel.ts` — non-visual hook pair (`useFloatingPanel`, `useOutsideClose`) shared by
   `Select`, `DatePicker`, `MentionTextarea`.
 
-## Does NOT own
+## Does NOT own / dependencies
 
-- Business logic or feature-specific composition — a component here should be usable by any
-  feature domain without knowing what a "case" or "tenant" is (exception: `UserMultiSelect`
-  is inherently case-scoped, since who's assignable depends on the case's branch).
-- Data fetching — primitives take props, they don't call `lib/api/*` themselves (again,
-  `UserMultiSelect` is the documented exception).
+- No business logic or feature-specific composition — usable by any domain without knowing
+  "case"/"tenant" (exception: `UserMultiSelect`, case-scoped since assignability depends on
+  branch). No data fetching in primitives (same exception).
+- No barrel `index.ts` — import by file: `import { Button } from '@/components/ui/Button'`.
+- `src/tokens.css` (OKLCH) — every primitive uses Tailwind utilities/CSS vars, never hardcoded
+  color.
+- `useFloatingPanel.ts` — shared by `Select`/`DatePicker`/`MentionTextarea`; modify carefully,
+  three components rely on its positioning/outside-click behavior at once.
 
-## Major entrypoints
+## Common modification patterns / constraints
 
-Import directly by name, e.g. `import { Button } from '@/components/ui/Button'`. No barrel
-`index.ts` re-export was found — import from the specific file.
-
-## Important dependencies
-
-- `src/tokens.css` (OKLCH custom properties) — every primitive should reference Tailwind
-  utility classes / CSS variables, never hardcode a color.
-- `useFloatingPanel.ts` is a genuine internal dependency of `Select`/`DatePicker`/
-  `MentionTextarea` — modify carefully, three components rely on its positioning/outside-click
-  behavior simultaneously.
-
-## Common modification patterns
-
-- **New primitive**: add a file here following the existing pattern (typed props, `forwardRef`
-  where the component wraps a native focusable element, Tailwind classes referencing token
-  variables). Check `DESIGN.md` for radius/shadow/motion conventions (cards 12-14px radius,
-  controls 8-10px, single hairline border OR ≤8px shadow never both, ≤240ms ease-out-quint
-  motion, full `prefers-reduced-motion` fallback).
-- **Extending `Badge.tsx`'s tone system**: add to `TONES`/`STATUS_TONE`/`TONE_ICON` maps rather
-  than creating a one-off colored element in a feature file — this keeps the "never color alone"
-  rule structurally enforced.
-
-## Architectural constraints
-
-- **Every status/priority-bearing UI must pair a tone with a label or icon** — this is a verified,
-  consistently-followed rule (`Badge.tsx`'s `Capsule`/`StatusBadge`/`PriorityBadge`, the `.dot`
-  utility in `index.css`). Do not add a bare color-only status indicator.
-- Primitives are the design system — a feature file rolling its own `<button>` for anything beyond
-  a compact icon-only/tab-like control should probably use `Button`/`Tabs` instead (some raw
-  `<button>` usage exists in feature folders for exactly that narrow exception; don't expand it).
-- Light-only theme (no dark mode in v1, per `DESIGN.md`) — don't add dark-mode-specific styling
-  without a product decision.
+- **New primitive**: typed props, `forwardRef` where it wraps a native focusable element,
+  Tailwind classes referencing token vars. Check `DESIGN.md` (cards 12-14px radius, controls
+  8-10px, single hairline border OR ≤8px shadow never both, ≤240ms ease-out-quint,
+  `prefers-reduced-motion` fallback).
+- **Extending `Badge.tsx`'s tone system**: add to `TONES`/`STATUS_TONE`/`TONE_ICON` maps, not a
+  one-off colored element — keeps "never color alone" structurally enforced (`Capsule`/
+  `StatusBadge`/`PriorityBadge`, `.dot` in `index.css`; no bare color-only indicators anywhere).
+- A feature file rolling its own `<button>` beyond a compact icon-only/tab-like control should use
+  `Button`/`Tabs` instead (narrow existing exceptions in feature folders; don't expand).
+- Light-only theme (no dark mode in v1, per `DESIGN.md`) — don't add dark-mode styling without a
+  product decision.
 
 ## Files to inspect first
 
-1. `Badge.tsx` — the status/tone pattern every other status-displaying component follows.
-2. `Dialog.tsx` — the modal primitive most feature dialogs (`*Dialog.tsx` files across
-   `src/features/`) build on top of.
-3. `useFloatingPanel.ts` — shared positioning logic behind three separate primitives.
+`Badge.tsx` (status/tone pattern), `Dialog.tsx` (modal base for `*Dialog.tsx` files across
+`src/features/`), `useFloatingPanel.ts` (shared positioning behind three primitives).
