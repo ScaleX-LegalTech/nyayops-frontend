@@ -13,3 +13,17 @@ export function getCauseList(date?: string, scope?: 'mine' | 'all'): Promise<Cau
     })}`,
   )
 }
+
+interface DownloadCauseListDocumentResponse {
+  status: 'ready' | 'queued'
+  download_url?: string
+  expires_in_seconds?: number
+}
+
+/** Presigned URL for the source cause-list PDF a hearing entry was parsed from - lets
+ * a user cross-check a row against the real document when something looks off. */
+export function downloadCauseListDocument(
+  documentId: string,
+): Promise<DownloadCauseListDocumentResponse> {
+  return get<DownloadCauseListDocumentResponse>(`/cause-list/${documentId}/download`)
+}
