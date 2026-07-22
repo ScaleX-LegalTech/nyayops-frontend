@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Loader2 } from 'lucide-react'
 import {
   downloadCnrLookupOrder,
   getCnrLookupBusinessDetail,
@@ -22,6 +23,16 @@ import {
 } from '@/features/cases/CaseDocumentSections'
 import type { CnrLookupResponse } from '@/types'
 
+// The extractor fetches a not-yet-cached CNR lazily (queued on first request) - poll
+// instead of making the user click "Check again" themselves. Bounded so a genuinely
+// stuck/slow portal fetch still ends in a real error, not an infinite spinner.
+const LOOKUP_POLL_TIMEOUT_MS = 25_000
+const LOOKUP_POLL_INTERVAL_MS = 3_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export default function CnrLookupPage() {
   const [cnr, setCnr] = useState('')
   const [courtType, setCourtType] = useState('')
@@ -29,9 +40,22 @@ export default function CnrLookupPage() {
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
 
   const mutation = useMutationWithToast({
-    mutationFn: () => lookupCnr(cnr.trim().toUpperCase(), courtType || undefined),
+    mutationFn: async () => {
+      const deadline = Date.now() + LOOKUP_POLL_TIMEOUT_MS
+      let resp = await lookupCnr(cnr.trim().toUpperCase(), courtType || undefined)
+      while (resp.status === 'queued' && Date.now() < deadline) {
+        await sleep(LOOKUP_POLL_INTERVAL_MS)
+        resp = await lookupCnr(cnr.trim().toUpperCase(), courtType || undefined)
+      }
+      if (resp.status === 'queued') {
+        throw new Error(
+          'Still fetching from the court portal after a while — try again in a minute.',
+        )
+      }
+      return resp
+    },
     onSuccess: (resp) => setResult(resp),
-    errorFallback: 'Could not look up this CNR.',
+    errorFallback: (err) => (err instanceof Error ? err.message : 'Could not look up this CNR.'),
   })
 
   const raw = result?.case
@@ -80,16 +104,17 @@ export default function CnrLookupPage() {
               </Select>
             </Field>
             <Button type="submit" loading={mutation.isPending} disabled={!cnr.trim()}>
-              {result?.status === 'queued' ? 'Check again' : 'Look up'}
+              Look up
             </Button>
           </form>
         </CardBody>
       </Card>
 
-      {result?.status === 'queued' && (
-        <p className="text-sm text-ink-muted">
+      {mutation.isPending && (
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="size-4 animate-spin" />
           Still fetching from the court portal (this can take a little while, especially for
-          district courts). Click "Check again" in a moment.
+          district courts)…
         </p>
       )}
 

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { linkCaseCnr } from '@/lib/api/cases'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
@@ -8,6 +9,16 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
 import type { DocumentCard } from '@/types'
+
+// The extractor fetches a newly-linked CNR lazily (queued on first request) - poll
+// instead of making the user click "Check again" themselves. Bounded so a genuinely
+// stuck/slow portal fetch still ends in a real error, not an infinite spinner.
+const LINK_POLL_TIMEOUT_MS = 25_000
+const LINK_POLL_INTERVAL_MS = 3_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 export function LinkCnrDialog({
   open,
@@ -28,12 +39,12 @@ export function LinkCnrDialog({
   const { toast } = useToast()
   const [cnr, setCnr] = useState('')
   const [courtType, setCourtType] = useState('')
-  const [pendingJobId, setPendingJobId] = useState<string | null>(null)
+  const [polling, setPolling] = useState(false)
 
   function reset() {
     setCnr('')
     setCourtType('')
-    setPendingJobId(null)
+    setPolling(false)
   }
 
   function closeAndReset() {
@@ -42,19 +53,29 @@ export function LinkCnrDialog({
   }
 
   const mutation = useMutationWithToast({
-    mutationFn: () => linkCaseCnr(caseId, { cnr, court_type: courtType || null }),
-    onSuccess: (resp) => {
-      if (resp.status === 'pending') {
-        setPendingJobId(resp.job_id)
-        toast('Still fetching from the court portal — check again shortly.', 'info')
-        return
+    mutationFn: async () => {
+      const deadline = Date.now() + LINK_POLL_TIMEOUT_MS
+      let resp = await linkCaseCnr(caseId, { cnr, court_type: courtType || null })
+      if (resp.status === 'pending') setPolling(true)
+      while (resp.status === 'pending' && Date.now() < deadline) {
+        await sleep(LINK_POLL_INTERVAL_MS)
+        resp = await linkCaseCnr(caseId, { cnr, court_type: courtType || null })
       }
+      if (resp.status === 'pending') {
+        throw new Error(
+          'Still fetching from the court portal after a while — try again in a minute.',
+        )
+      }
+      return resp
+    },
+    onSuccess: () => {
       invalidateCaseScopes(queryClient)
       queryClient.invalidateQueries({ queryKey: qk.caseDetail(caseId) })
       toast('CNR linked.', 'success')
       closeAndReset()
     },
-    errorFallback: 'Could not link CNR.',
+    onError: () => setPolling(false),
+    errorFallback: (err) => (err instanceof Error ? err.message : 'Could not link CNR.'),
   })
 
   return (
@@ -74,7 +95,7 @@ export function LinkCnrDialog({
             loading={mutation.isPending}
             disabled={!cnr.trim()}
           >
-            {pendingJobId ? 'Check again' : 'Link CNR'}
+            {polling ? 'Fetching…' : 'Link CNR'}
           </Button>
         </>
       }
@@ -108,10 +129,11 @@ export function LinkCnrDialog({
             <option value="district_court">District Court</option>
           </Select>
         </Field>
-        {pendingJobId && (
-          <p className="text-sm text-ink-muted">
+        {polling && (
+          <p className="flex items-center gap-2 text-sm text-ink-muted">
+            <Loader2 className="size-4 animate-spin" />
             Still fetching from the court portal (this can take a little while, especially for
-            district courts). Click "Check again" in a moment.
+            district courts)…
           </p>
         )}
         <p className="text-xs text-ink-muted">

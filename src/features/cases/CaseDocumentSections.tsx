@@ -2,7 +2,6 @@ import { Fragment, useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Download, Eye, Loader2 } from 'lucide-react'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
-import { useToast } from '@/components/ui/Toast'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import type { PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
@@ -24,6 +23,16 @@ export function cellValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+// The extractor fetches order PDFs lazily (queued on first request) - poll here
+// instead of bouncing the user back to click Download again themselves. Bounded so a
+// genuinely stuck/slow portal fetch still ends in a real error, not an infinite spinner.
+const ORDER_POLL_TIMEOUT_MS = 20_000
+const ORDER_POLL_INTERVAL_MS = 2_500
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export interface OrderActions {
@@ -139,20 +148,26 @@ function OrdersSection({
   onPreview: (target: PreviewTarget) => void
   actions: OrderActions
 }) {
-  const { toast } = useToast()
   const downloadMutation = useMutationWithToast({
-    mutationFn: (orderId: string) => actions.download(orderId),
-    onSuccess: (resp) => {
-      if (resp.status === 'ready' && resp.download_url) {
-        window.open(resp.download_url, '_blank', 'noopener')
-        // The "downloaded" flag just flipped server-side - refetch so the badge/label
-        // reflect it instead of showing stale "Not downloaded" until a page reload.
-        actions.onDownloaded?.()
-      } else {
-        toast('The court portal is still preparing this PDF — try again shortly.', 'info')
+    mutationFn: async (orderId: string) => {
+      const deadline = Date.now() + ORDER_POLL_TIMEOUT_MS
+      let resp = await actions.download(orderId)
+      while (resp.status !== 'ready' && Date.now() < deadline) {
+        await sleep(ORDER_POLL_INTERVAL_MS)
+        resp = await actions.download(orderId)
       }
+      if (resp.status !== 'ready' || !resp.download_url) {
+        throw new Error('The court portal is still preparing this PDF. Try again in a minute.')
+      }
+      return resp
     },
-    errorFallback: 'Could not fetch this order.',
+    onSuccess: (resp) => {
+      window.open(resp.download_url as string, '_blank', 'noopener')
+      // The "downloaded" flag just flipped server-side - refetch so the badge/label
+      // reflect it instead of showing stale "Not downloaded" until a page reload.
+      actions.onDownloaded?.()
+    },
+    errorFallback: (err) => (err instanceof Error ? err.message : 'Could not fetch this order.'),
   })
 
   if (rows.length === 0) return <p className="text-sm text-ink-muted">No orders.</p>
@@ -262,9 +277,12 @@ function BusinessDetailPanel({
   const { data, isFetching, isError, refetch } = useQuery({
     queryKey,
     queryFn: () => actions.fetch(sectionKey, row),
-    // Once fetched (ready, queued, or failed), don't silently re-hit the extractor
-    // just because the row was collapsed and re-expanded - only "Check again" should.
+    // Once fetched (ready or failed), don't silently re-hit the extractor just because
+    // the row was collapsed and re-expanded - only "Check again" (for a failed row)
+    // should. "queued" is the exception: auto-poll it below instead of making the user
+    // click to check.
     staleTime: Infinity,
+    refetchInterval: (query) => (query.state.data?.status === 'queued' ? 3000 : false),
   })
 
   useEffect(() => {
@@ -292,11 +310,8 @@ function BusinessDetailPanel({
   }
   if (data?.status === 'queued') {
     return (
-      <div className="flex items-center justify-between gap-3 text-sm text-ink-muted">
-        <span>The court portal is still fetching this — try again in a moment.</span>
-        <Button size="sm" variant="secondary" onClick={checkAgain}>
-          Check again
-        </Button>
+      <div className="flex items-center gap-2 text-sm text-ink-muted">
+        <Loader2 className="size-4 animate-spin" /> The court portal is still fetching this…
       </div>
     )
   }
