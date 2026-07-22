@@ -1,115 +1,88 @@
 # AGENTS.md — NyayOps Dashboard (`frontend/`)
 
-React 19 + Vite + TypeScript SPA. Feature-folder structure, TanStack Query for server state,
-Tailwind v4, no external UI kit (custom design-system primitives only). Talks exclusively to the
-NyayOps backend (`backend v1/`) — never calls Court Data Service directly.
+React 19 + Vite + TS SPA. Feature-folder structure, TanStack Query for server state, Tailwind v4,
+no external UI kit. Talks only to the NyayOps backend — never Court Data Service directly.
 
 ## Workspace context
 
-This repo is one of **three independently-versioned git repos** in the NyayOps product — separate
-clones, no shared code/types, integration over HTTP only:
+3 independently-versioned git repos, no shared code/types, integration over HTTP only:
 
 | Repo | Role |
 |---|---|
-| **this repo** (frontend) | The only UI. Talks to the NyayOps backend exclusively |
-| NyayOps backend (separate repo) | Core multi-tenant SaaS API this frontend calls (`VITE_API_BASE_URL`) |
-| Court Data Service (separate repo) | eCourts scraper. This frontend never calls it directly — only through the NyayOps backend |
+| this repo (frontend) | only UI; calls NyayOps backend via `VITE_API_BASE_URL` |
+| NyayOps backend | core multi-tenant SaaS API |
+| Court Data Service | eCourts scraper; frontend never calls directly, only via backend |
 
-**No shared types package** — this repo maintains its own TypeScript `Case`/`Document`/etc. types
-(`src/types/index.ts`) independently from the NyayOps backend's Pydantic schemas and Court Data
-Service's schema. A backend contract change (new/renamed field) requires manually updating the
-matching type here and the `src/lib/api/*` function that consumes it — nothing auto-generates or
-enforces this sync across repos.
+No shared types package — `src/types/index.ts` is maintained independently from the backend's
+Pydantic schemas. A backend contract change requires manually updating the matching type here +
+the `src/lib/api/*` function that consumes it; nothing auto-syncs across repos.
 
 ## Purpose
 
-The only UI for NyayOps: case management, document workflow, review queue, audit log, admin
-(users/roles/branches), dashboard KPIs, notifications, settings (profile/MFA/org).
+Case management, document workflow, review queue, audit log, admin (users/roles/branches),
+dashboard KPIs, notifications, settings (profile/MFA/org).
 
-## Architecture overview
+## Architecture
 
 ```
 src/router.tsx              React Router v7, createBrowserRouter, every route lazy-loaded
-   │
 src/features/<domain>/      one folder per business area — pages/dialogs as flat .tsx files
-   │  useQuery/useMutation
-src/lib/api/<resource>.ts   ONE file per resource — the only layer that knows request/response shapes
-   │
+src/lib/api/<resource>.ts   ONE file per resource — only layer that knows request/response shapes
 src/lib/api/client.ts       apiFetch() — auth header injection, 401 → refresh-and-retry, error typing
-   │
-src/auth/AuthContext.tsx    token state, derived `user` (client-side JWT decode, display only)
+src/auth/AuthContext.tsx    token state, derived user (client-side JWT decode, display only)
 src/components/ui/          design-system primitives (Button, Dialog, Table, Toast, ...)
 src/lib/queryKeys.ts        centralized TanStack Query cache key factory
 ```
+Per-directory detail: `src/auth/AGENTS.md`, `src/components/ui/AGENTS.md`, `src/features/AGENTS.md`,
+`src/lib/api/AGENTS.md` — assume this file is already read, they don't repeat it.
 
 Read `frontend/DESIGN.md` (OKLCH tokens, type scale, light-only theme) and `frontend/PRODUCT.md`
 (target users, brand voice, anti-references, WCAG 2.1 AA) before any visual-design change — this
 product deliberately avoids generic AI-dashboard/SaaS-gradient aesthetics.
 
-## Directory responsibilities
-
-| Dir | Owns | Does NOT own |
-|---|---|---|
-| `src/features/<domain>/` | Pages + dialogs for one business area, all data-fetching via hooks | Request/response shapes (that's `lib/api/`), design-system primitives (that's `components/ui/`) |
-| `src/lib/api/` | One file per backend resource, wraps `client.ts` | Any UI rendering |
-| `src/auth/` | Auth context + route guarding | Token *storage* mechanics (that's `lib/api/tokens.ts`) |
-| `src/components/ui/` | Design-system primitives, no business logic | Feature-specific composition |
-| `src/lib/` (root files) | Cross-cutting utilities: `queryKeys.ts`, `jwt.ts`, `cn.ts`, `format.ts`, `formatName.ts`, `chartColors.ts`, `queryClient.ts` | — |
-
 ## Coding conventions
 
-- **No external UI kit** — extend `src/components/ui/` primitives rather than pulling in a
-  component library.
-- All network access funnels through `apiFetch`/`get`/`post`/`patch`/`put`/`del`/`getBlob` in
-  `lib/api/client.ts` — no raw `fetch()` calls inside `src/features/`.
-- Rendering a person's name: use `displayName()` from `lib/formatName.ts` (wraps `full_name` with
-  the admin-set `name_prefix`/`name_suffix`), not raw `user.full_name`/`person.full_name`. The one
-  exception is @mention text insertion/matching (`lib/mentions.ts`, `MentionTextarea.tsx`'s `pick()`)
-  — that protocol keys on the literal `full_name` string embedded in stored comment text and must
-  not be reformatted.
-- `src/lib/queryKeys.ts` centralizes cache keys (`qk` object, literal tuples or factory functions)
-  — add new keys there, don't inline ad hoc key arrays at call sites. `CASE_SCOPES` +
-  `invalidateCaseScopes(queryClient)` gives one-call broad invalidation after case mutations —
-  reuse it instead of hand-enumerating affected keys.
-- Status (case status, review status, priority, deadlines) must **never** be color alone — always
-  pair with a label/icon (`Badge.tsx`'s `StatusBadge`/`PriorityBadge` pattern). Verified
-  consistently followed as of this writing — keep it that way.
-- Design tokens live in `src/tokens.css` (OKLCH custom properties) — component code should
-  reference Tailwind utility classes / CSS variables, not hardcoded hex values. Exception to watch:
-  `src/lib/chartColors.ts` currently hardcodes hex values that have drifted from the token set
-  (see technical debt below) — don't copy that pattern for new chart work; resync or ask before
-  extending it.
-- Every route is lazy-loaded via the `page()` helper in `router.tsx` — new routes should follow the
-  same `{ lazy: async () => ({ Component }) }` pattern.
+- No external UI kit — extend `src/components/ui/` primitives.
+- All network access via `apiFetch`/`get`/`post`/`patch`/`put`/`del`/`getBlob` (`lib/api/client.ts`)
+  — no raw `fetch()` inside `src/features/`.
+- Person names: use `displayName()` (`lib/formatName.ts`, wraps `full_name` with admin-set
+  `name_prefix`/`name_suffix`), not raw `full_name`. Exception: @mention insertion/matching
+  (`lib/mentions.ts`, `MentionTextarea.tsx`'s `pick()`) keys on the literal `full_name` string
+  embedded in stored comment text — don't reformat there.
+- `src/lib/queryKeys.ts` (`qk` object) centralizes cache keys — add new keys there, don't inline ad
+  hoc arrays. `CASE_SCOPES` + `invalidateCaseScopes(queryClient)` gives one-call broad invalidation
+  after case mutations — reuse it.
+- Status (case status, review status, priority, deadlines) never color-alone — always pair with a
+  label/icon (`Badge.tsx`'s `StatusBadge`/`PriorityBadge`).
+- Design tokens in `src/tokens.css` (OKLCH) — reference Tailwind utilities/CSS vars, never
+  hardcoded hex. Exception to not copy: `src/lib/chartColors.ts` hardcodes drifted hex (known
+  debt below).
+- Every route lazy-loaded via the `page()` helper in `router.tsx` — follow the existing
+  `{ lazy: async () => ({ Component }) }` pattern.
 
 ## Dependency boundaries
 
-- Frontend → NyayOps backend only (`VITE_API_BASE_URL`). Never add a direct call to Court Data
-  Service — any court-data need goes through a NyayOps backend endpoint
-  (`case_court_data.py`/`case_court_data`-backed routes).
-- No Redux/Zustand/Jotai — global state is React Context (`AuthContext`, `ToastContext`) plus
-  TanStack Query as the server-state cache. Don't introduce a new state library without a strong
-  reason; cross-cutting reads go through small custom hooks (`usePermissions`, `useUsers`,
-  `useCasePeople`) wrapping `useQuery`.
+- Frontend → NyayOps backend only. Never call Court Data Service directly — route court-data needs
+  through a backend endpoint (`case_court_data.py`-backed routes).
+- No Redux/Zustand/Jotai — global state is React Context (`AuthContext`, `ToastContext`) +
+  TanStack Query as server-state cache. Cross-cutting reads go through custom hooks
+  (`usePermissions`, `useUsers`, `useCasePeople`) wrapping `useQuery`.
 
 ## Rules and invariants
 
-1. `ProtectedRoute`/`RequireManagingDirector` guards are UI convenience only — **the server
-   enforces the real authorization** (per an explicit code comment). Don't treat a route guard as
-   a security boundary when reasoning about what's "protected."
-2. JWT decoding in `AuthContext`/`jwt.ts` is **display-only** — no signature verification happens
-   client-side (by design; the server is the authority). Don't use decoded claims for anything
-   security-sensitive beyond UI conditionals (e.g. showing/hiding a nav item).
-3. `deviceToken` (in `lib/api/tokens.ts`) is deliberately **not** cleared on logout — it persists
-   across a logout/login cycle so a recognized browser skips the email-OTP challenge next login.
-   Don't "fix" this to clear on logout without understanding the login-flow tradeoff.
-4. 401 handling is centralized in `client.ts`'s `apiFetch` (dedup'd refresh + one retry via a
-   shared in-flight promise, then `AUTH_LOGOUT_EVENT` on failure) — don't add per-call-site 401
-   handling; listen for `AUTH_LOGOUT_EVENT` if a component needs to react to a forced logout.
-5. No dev-server proxy exists (`vite.config.ts` has none) — API calls are cross-origin directly
-   against `VITE_API_BASE_URL`. Don't assume a `/api` same-origin path works in dev.
+1. `ProtectedRoute`/`RequireManagingDirector` are UI convenience only — the server enforces real
+   authorization. Don't treat a route guard as a security boundary.
+2. JWT decode in `AuthContext`/`jwt.ts` is display-only, no signature verification — don't use
+   decoded claims for anything security-sensitive.
+3. `deviceToken` (`lib/api/tokens.ts`) is deliberately **not** cleared on logout — it persists so a
+   recognized browser skips the email-OTP challenge next login. Don't "fix" this.
+4. 401 handling is centralized in `client.ts`'s `apiFetch` (dedup'd refresh + one retry, then
+   `AUTH_LOGOUT_EVENT` on failure) — don't add per-call-site 401 handling; listen for
+   `AUTH_LOGOUT_EVENT` instead.
+5. No dev-server proxy (`vite.config.ts` has none) — API calls are cross-origin directly against
+   `VITE_API_BASE_URL`; no `/api` same-origin path works in dev.
 
-## Build/test/run commands
+## Commands
 
 ```bash
 npm run dev
@@ -118,56 +91,42 @@ npm run typecheck    # tsc only
 npm run lint         # eslint .
 npm run preview
 ```
-**No test script exists** — no Vitest/Jest/Playwright/Testing Library anywhere in the project.
-`tsc` + `eslint` are the only automated correctness gates. If asked to add tests, there's no
-existing convention to match — this would be a from-scratch setup decision.
+No test script (no Vitest/Jest/Playwright/Testing Library) — `tsc` + `eslint` are the only
+automated gates.
 
-## Important environment variables
+## Env vars
 
-- `VITE_API_BASE_URL` — NyayOps backend base URL; `API_ORIGIN` (derived in `client.ts` by
-  stripping the `/api/v1` suffix) is used for document upload/download URLs.
+`VITE_API_BASE_URL` — backend base URL; `API_ORIGIN` (derived in `client.ts`, strips `/api/v1`)
+used for document upload/download URLs.
 
-## Known pain points / technical debt
+## Known debt
 
-- **No automated tests at all** — highest-leverage gap in this project.
-- `src/lib/chartColors.ts`'s bronze/ink-green hex palette no longer matches the shipped
-  cobalt/gold "Ledger Blue" OKLCH tokens — dashboard pie/bar charts are visually out of sync with
-  the rest of the UI (looks like a leftover from an earlier theme concept referenced in
-  `PRODUCT.md`'s aspirational section).
-- `src/tokens.css`'s actual shipped color values differ slightly from the literal table in
-  `DESIGN.md` (e.g. success/warning lightness values) — treat `tokens.css` as the source of truth,
-  `DESIGN.md` as directionally accurate but not byte-exact.
-- 28 raw `<button>` elements exist outside the `Button` primitive across `src/features/**` — mostly
-  intentional (compact icon-only toggles/tab-like controls), but worth a look if a design-system
-  consistency pass happens.
-- `src/assets/react.svg` / `vite.svg` are unused scaffold leftovers from `create-vite`.
+- No automated tests at all — highest-leverage gap.
+- `src/lib/chartColors.ts`'s bronze/ink-green hex no longer matches the shipped cobalt/gold
+  "Ledger Blue" OKLCH tokens — dashboard charts visually out of sync with the rest of the UI.
+- `src/tokens.css`'s actual values differ slightly from `DESIGN.md`'s literal table (e.g.
+  success/warning lightness) — `tokens.css` is source of truth.
+- 28 raw `<button>` elements outside `Button` exist across `src/features/**` — mostly intentional
+  compact icon-only/tab-like controls.
+- `src/assets/react.svg`/`vite.svg` — unused `create-vite` scaffold leftovers.
 
 ## Deployment
 
-Hosted on Vercel, project name `nyayops` (renamed from the default `frontend` 2026-07-18).
-`workspace.nyayops.in` is the canonical domain; `app.nyayops.in` and `portal.nyayops.in` both exist
-as memorable aliases that redirect to it (308). That redirect is configured via **Vercel's Domains
-API/dashboard** (`redirect`/`redirectStatusCode` fields on the domain object) — not `vercel.json`.
-A `vercel.json` with `redirects`/`has: host` rules was tried first and doesn't work for this case:
-that mechanism is for path/geo-conditional routing within a single domain's traffic, not for
-redirecting between multiple custom domains aliased to the same deployment — Vercel treats every
-aliased domain as an equally-valid entry point and doesn't evaluate `vercel.json` redirects to
-distinguish between them. If this redirect ever needs changing, do it via the dashboard (Project →
-Settings → Domains → click the domain → set redirect) or the API.
+Vercel, project `nyayops`. `workspace.nyayops.in` is canonical; `app.nyayops.in`/
+`portal.nyayops.in` alias-redirect (308) to it via **Vercel's Domains API/dashboard** (`redirect`
+field on the domain object), not `vercel.json` (tried first — that mechanism is path/geo-
+conditional routing within one domain; Vercel treats every aliased domain as an equally-valid
+entry point). To change: dashboard → Project → Settings → Domains → domain → set redirect, or API.
 
-`vercel.json` **is** still needed, but only for one thing: a `rewrites` catch-all
-(`/(.*) -> /index.html`) so client-side routes (`/dashboard`, `/cases/...`, anything react-router
-owns) survive a hard refresh or direct link instead of 404ing — this is a static SPA build with no
-framework auto-detection to add that fallback for us. Don't delete this file thinking it's the
-inert redirect experiment from before; that part's gone, this part is load-bearing.
+`vercel.json` is still needed for a `rewrites` catch-all (`/(.*) -> /index.html`) so client-side
+routes survive a hard refresh (static SPA, no framework auto-detection for this) — don't delete
+it thinking it's the inert redirect experiment; this part is load-bearing.
 
-`VITE_API_BASE_URL` is set to `https://api.nyayops.in/api/v1` as a Vercel production env var (Vite
-bakes it in at build time, per-environment values only take effect on the next build/deploy after
-being set — `vercel env add` then redeploy, not enough to just add it).
+`VITE_API_BASE_URL=https://api.nyayops.in/api/v1` is a Vercel production env var — Vite bakes it
+in at build time, so a new value needs `vercel env add` + redeploy, not just adding it.
 
 ## Current priorities
 
-`CaseFullDetailsPage.tsx` (809 lines), `CaseDetailPage.tsx` (693 lines), and `UsersPage.tsx` (676
-lines) are the largest files and the most actively-touched surface (case workspace + admin) based
-on file size/complexity — verify current sprint focus with the team rather than assuming from file
-size alone.
+`CaseFullDetailsPage.tsx` (809 lines), `CaseDetailPage.tsx` (693), `UsersPage.tsx` (676) are the
+largest/most-touched files (case workspace + admin) — verify current sprint focus with the team
+rather than assuming from file size alone.

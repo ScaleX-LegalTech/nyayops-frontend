@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Briefcase,
+  Building2,
   FileText,
   IndianRupee,
   Loader2,
+  Receipt,
   Search,
   TriangleAlert,
   User,
@@ -23,6 +25,8 @@ const TYPE_LABEL: Record<SearchResultType, string> = {
   user: 'People',
   issue: 'Issues',
   payment: 'Payments',
+  bill: 'Bills',
+  branch: 'Branches',
 }
 
 const TYPE_ICON: Record<SearchResultType, typeof Briefcase> = {
@@ -31,10 +35,13 @@ const TYPE_ICON: Record<SearchResultType, typeof Briefcase> = {
   user: User,
   issue: TriangleAlert,
   payment: IndianRupee,
+  bill: Receipt,
+  branch: Building2,
 }
 
-/** Where a result actually links to - documents/issues/payments have no standalone
- * detail page, so they open the case they belong to. */
+/** Where a result actually links to - documents/issues/payments/bills have no
+ * standalone detail page, so they open the case they belong to. Branches open the
+ * Users page (there's no dedicated branch detail page either). */
 function resultHref(item: SearchResultItem): string | null {
   switch (item.type) {
     case 'case':
@@ -42,8 +49,10 @@ function resultHref(item: SearchResultItem): string | null {
     case 'document':
     case 'issue':
     case 'payment':
+    case 'bill':
       return item.case_id ? `/cases/${item.case_id}` : null
     case 'user':
+    case 'branch':
       return '/admin/users'
   }
 }

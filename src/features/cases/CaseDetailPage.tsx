@@ -488,8 +488,8 @@ export default function CaseDetailPage() {
 
           <Card>
             <CardHeader
-              title="Activity & comments"
-              description={`${c.comments.length} comment${c.comments.length === 1 ? '' : 's'}`}
+              title="Case Thread"
+              description={`${c.comments.length} message${c.comments.length === 1 ? '' : 's'}`}
               action={
                 <Link
                   to={`/cases/${caseId}/history`}
@@ -501,7 +501,7 @@ export default function CaseDetailPage() {
             />
             <CardBody className="border-t border-border">
               <p className="mb-3 text-sm text-ink-muted">
-                Comments, mentions, attachments, and status changes for this case.
+                Messages, mentions, attachments, and status changes for this case.
               </p>
               <Button
                 variant="secondary"

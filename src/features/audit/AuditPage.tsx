@@ -1,45 +1,86 @@
-import { Fragment, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Download, ScrollText } from 'lucide-react'
 import { exportAuditLogsCsv, listAuditLogs } from '@/lib/api/audit'
 import { qk } from '@/lib/queryKeys'
 import { formatDateTime, humanize } from '@/lib/format'
-import { useUsers } from '@/lib/useUsers'
+import { cn } from '@/lib/cn'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
 import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Table'
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Feedback'
+import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
+import type { AuditLogSearchFilters } from '@/types'
+
+const PAGE_SIZE = 50
+
+const RESOURCE_TYPES = [
+  'cases',
+  'documents',
+  'users',
+  'branches',
+  'roles',
+  'bills',
+  'payment_milestones',
+  'issues',
+  'organization',
+]
 
 export default function AuditPage() {
   const { toast } = useToast()
-  const { nameOf } = useUsers()
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [resource, setResource] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: qk.auditLogs,
-    queryFn: listAuditLogs,
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const filters: AuditLogSearchFilters = {
+    resource_type: resource || undefined,
+    q: debouncedSearch.trim() || undefined,
+  }
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: qk.auditLogsPage(filters),
+    queryFn: ({ pageParam }) =>
+      listAuditLogs({ ...filters, limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.has_more ? allPages.reduce((sum, page) => sum + page.items.length, 0) : undefined,
   })
 
-  const logs = useMemo(() => data ?? [], [data])
-  const resourceTypes = useMemo(
-    () => [...new Set(logs.map((l) => l.resource_type))].sort(),
-    [logs],
-  )
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '400px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
-  const filtered = logs.filter((l) => {
-    if (resource && l.resource_type !== resource) return false
-    if (search) {
-      const hay = `${l.action_type} ${l.resource_type} ${l.resource_id} ${l.comment ?? ''}`.toLowerCase()
-      if (!hay.includes(search.toLowerCase())) return false
-    }
-    return true
-  })
+  const logs = data?.pages.flatMap((page) => page.items) ?? []
 
   async function handleExport() {
     setExporting(true)
@@ -73,7 +114,7 @@ export default function AuditPage() {
         />
         <Select value={resource} onChange={(e) => setResource(e.target.value)} className="sm:w-56">
           <option value="">All resource types</option>
-          {resourceTypes.map((r) => (
+          {RESOURCE_TYPES.map((r) => (
             <option key={r} value={r}>
               {humanize(r)}
             </option>
@@ -85,11 +126,12 @@ export default function AuditPage() {
         <LoadingState />
       ) : isError ? (
         <ErrorState error={error} onRetry={refetch} />
-      ) : filtered.length === 0 ? (
+      ) : logs.length === 0 ? (
         <TableWrap>
           <EmptyState icon={ScrollText} title="No audit entries" />
         </TableWrap>
       ) : (
+        <>
         <TableWrap>
           <Table>
             <THead>
@@ -97,13 +139,14 @@ export default function AuditPage() {
                 <Th className="w-8" />
                 <Th>When</Th>
                 <Th>Actor</Th>
+                <Th>Access</Th>
                 <Th>Action</Th>
                 <Th>Resource</Th>
                 <Th>Comment</Th>
               </Tr>
             </THead>
             <TBody>
-              {filtered.map((log) => {
+              {logs.map((log) => {
                 const isOpen = expanded === log.id
                 const hasState = log.previous_state || log.new_state
                 return (
@@ -127,25 +170,29 @@ export default function AuditPage() {
                       <Td className="whitespace-nowrap text-ink-muted tabular">
                         {formatDateTime(log.occurred_at)}
                       </Td>
-                      <Td className="text-ink">{nameOf(log.actor_id)}</Td>
+                      <Td className="text-ink">{log.actor_name}</Td>
+                      <Td className="text-ink-muted">
+                        {log.actor_access ? (
+                          <Badge tone="neutral">{log.actor_access}</Badge>
+                        ) : (
+                          <span className="text-ink-faint">Member</span>
+                        )}
+                      </Td>
                       <Td>
                         <Badge tone="brand">{humanize(log.action_type)}</Badge>
                       </Td>
                       <Td className="text-ink-muted">
-                        {humanize(log.resource_type)}
-                        <span className="ml-1 font-mono text-xs text-ink-faint">
-                          {log.resource_id.slice(0, 8)}
-                        </span>
+                        {/* A raw uuid fragment means nothing to a reader - if no
+                            human label resolved server-side, just name the resource
+                            type rather than showing an id nobody can act on. */}
+                        {log.resource_label ?? humanize(log.resource_type)}
                       </Td>
                       <Td className="max-w-xs truncate text-ink-muted">{log.comment ?? '—'}</Td>
                     </Tr>
                     {isOpen && hasState && (
                       <Tr className="bg-surface-muted/50">
-                        <Td colSpan={6} className="px-4 py-3">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <StateBlock label="Previous" state={log.previous_state} />
-                            <StateBlock label="New" state={log.new_state} />
-                          </div>
+                        <Td colSpan={7} className="px-4 py-3">
+                          <StateChanges previous={log.previous_state} next={log.new_state} />
                         </Td>
                       </Tr>
                     )}
@@ -155,18 +202,81 @@ export default function AuditPage() {
             </TBody>
           </Table>
         </TableWrap>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isFetchingNextPage && <Spinner />}
+        </div>
+        </>
       )}
     </div>
   )
 }
 
-function StateBlock({ label, state }: { label: string; state: Record<string, unknown> | null }) {
+/** A field-by-field diff instead of raw JSON - "Login access: Yes → No" reads
+ * instantly, unlike two side-by-side {"is_active": true}/{"is_active": false}
+ * blocks. Falls back to a plain field list (no Previous/New columns) for creation
+ * events, which only ever populate new_state. */
+function StateChanges({
+  previous,
+  next,
+}: {
+  previous: Record<string, unknown> | null
+  next: Record<string, unknown> | null
+}) {
+  // A raw uuid ("case_id": "069cc4e1-...") is internal plumbing, not something a
+  // reader can act on - the resource this event is about already has its own
+  // human label in the Resource column, so drop id-shaped fields entirely rather
+  // than surface a value nobody can interpret.
+  const keys = Array.from(new Set([...Object.keys(previous ?? {}), ...Object.keys(next ?? {})]))
+    .filter((key) => !isUuidField(key, previous?.[key] ?? next?.[key]))
+  if (keys.length === 0) return null
+  const isCreation = !previous
+
   return (
-    <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
-      <pre className="overflow-x-auto rounded-control bg-surface p-3 font-mono text-xs text-ink scrollbar-thin">
-        {state ? JSON.stringify(state, null, 2) : '—'}
-      </pre>
+    <div className="rounded-control border border-border bg-surface p-3">
+      <div
+        className={cn(
+          'grid gap-x-4 gap-y-1.5 text-sm',
+          isCreation ? 'grid-cols-[auto_1fr]' : 'grid-cols-[auto_1fr_1fr]',
+        )}
+      >
+        {!isCreation && (
+          <>
+            <span />
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+              Previous
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+              New
+            </span>
+          </>
+        )}
+        {keys.map((key) => (
+          <Fragment key={key}>
+            <span className="font-medium text-ink">{humanize(key)}</span>
+            {isCreation ? (
+              <span className="text-ink">{formatStateValue(next?.[key])}</span>
+            ) : (
+              <>
+                <span className="text-ink-muted">{formatStateValue(previous?.[key])}</span>
+                <span className="text-ink">{formatStateValue(next?.[key])}</span>
+              </>
+            )}
+          </Fragment>
+        ))}
+      </div>
     </div>
   )
+}
+
+function formatStateValue(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuidField(key: string, value: unknown): boolean {
+  return key.endsWith('_id') && typeof value === 'string' && UUID_PATTERN.test(value)
 }

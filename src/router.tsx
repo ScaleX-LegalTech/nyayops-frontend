@@ -37,7 +37,23 @@ export const router = createBrowserRouter([
           },
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'bills', ...page(() => import('@/features/bills/BillsPage')) },
+          { path: 'bills/:billId/thread', ...page(() => import('@/features/bills/BillThreadPage')) },
+          {
+            path: 'cases/bills/:billId/thread',
+            ...page(() => import('@/features/bills/BillThreadPage')),
+          },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
+          { path: 'chats', ...page(() => import('@/features/threads/InboxPage')) },
+          { path: 'cause-list', ...page(() => import('@/features/causeList/CauseListPage')) },
+          { path: 'cnr-lookup', ...page(() => import('@/features/cnrLookup/CnrLookupPage')) },
+          {
+            path: 'chats/cases/:caseId/thread',
+            ...page(() => import('@/features/cases/CaseThreadPage')),
+          },
+          {
+            path: 'chats/bills/:billId/thread',
+            ...page(() => import('@/features/bills/BillThreadPage')),
+          },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },
           { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },
           { path: 'notifications', ...page(() => import('@/features/notifications/NotificationsPage')) },

@@ -1,4 +1,8 @@
 export type UserStatus = 'active' | 'pending' | 'suspended'
+/** Status filter accepts one more value than UserStatus: "frozen" filters on
+ * is_restricted (read-only access), which is orthogonal to active/pending/suspended -
+ * a user can be active AND frozen at once, so it's never a User.status value itself. */
+export type UserStatusFilter = UserStatus | 'frozen'
 
 export interface User {
   id: string
@@ -17,6 +21,8 @@ export interface User {
   role_ids: string[]
   created_at: string
   status: UserStatus
+  /** Only ever set on a Past Members row - soft delete never clears it. */
+  deleted_at: string | null
 }
 
 export type UserSortBy = 'name' | 'email' | 'branch' | 'joined_at'
@@ -26,13 +32,15 @@ export interface UserSearchFilters {
   q?: string
   branch_id?: string
   role_id?: string
-  status?: UserStatus
+  status?: UserStatusFilter
   joined_from?: string
   joined_to?: string
   sort_by?: UserSortBy
   sort_dir?: SortDir
   limit?: number
   offset?: number
+  /** Past Members view - soft-deleted users only, read-only. */
+  deleted?: boolean
 }
 
 export interface UserPage {

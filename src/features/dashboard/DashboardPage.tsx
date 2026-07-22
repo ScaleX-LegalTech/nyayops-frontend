@@ -50,6 +50,7 @@ import { CHART_AXIS_TICK, CHART_BAR_FILL, CHART_TOOLTIP_CURSOR, STATUS_COLORS } 
 import type { Case, Issue, RecentActivityItem } from '@/types'
 import { getBillSummary } from '@/lib/api/bills'
 import { BillQueueCard } from '@/features/bills/BillQueueCard'
+import { CauseListCard } from './CauseListCard'
 import type { LucideIcon } from 'lucide-react'
 
 // Aggregate dashboard stats don't need to feel real-time - a longer staleTime than
@@ -367,7 +368,14 @@ function MyWorkView() {
           emptyTitle="No upcoming hearings"
           showHearingDate
         />
+        <CauseListCard />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
         <BillQueueCard />
+        <ActivityFeedCard
+          activity={recentActivity.data ?? []}
+          isLoading={recentActivity.isLoading}
+        />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <CaseListCard
@@ -378,10 +386,6 @@ function MyWorkView() {
           emptyTitle="Nothing overdue"
           emptyDescription="You're on track."
           showHearingDate
-        />
-        <ActivityFeedCard
-          activity={recentActivity.data ?? []}
-          isLoading={recentActivity.isLoading}
         />
       </div>
     </div>

@@ -211,10 +211,20 @@ export function addCaseComment(
   comment: string,
   mentionedUserIds?: string[],
   attachmentDocumentIds?: string[],
+  replyToMessageId?: string,
 ): Promise<Case> {
   return post<Case>(`/review/${caseId}/comments`, {
     comment,
     mentioned_user_ids: mentionedUserIds ?? [],
     attachment_document_ids: attachmentDocumentIds ?? [],
+    reply_to_message_id: replyToMessageId ?? null,
   })
+}
+
+export function deleteCaseComment(
+  caseId: string,
+  commentId: string,
+  scope: 'me' | 'everyone',
+): Promise<Case> {
+  return del<Case>(`/review/${caseId}/comments/${commentId}?scope=${scope}`)
 }

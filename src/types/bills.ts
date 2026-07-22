@@ -1,3 +1,5 @@
+import type { ThreadComment } from './threads'
+
 export type BillStatus = 'raised' | 'client_contacted' | 'proof_uploaded' | 'approved'
 export type BillFlowDirection = 'collection' | 'refund'
 export type BillCaseTypeCategory = 'tsr_apf' | 'suit' | 'demand_notice' | 'other'
@@ -44,6 +46,7 @@ export interface Bill {
   approved_at: string | null
   created_at: string
   updated_at: string
+  comments: ThreadComment[]
 }
 
 export interface BillSearchFilters {

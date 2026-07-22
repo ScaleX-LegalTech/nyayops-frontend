@@ -1,5 +1,5 @@
 import type { Bill, BillCaseTypeCategory, BillFlowDirection, BillPaymentDestinationType, BillSearchFilters, BillSummary } from '@/types'
-import { get, patch, post, toQuery } from './client'
+import { del, get, patch, post, toQuery } from './client'
 
 export interface BillLineItemInputPayload {
   description: string
@@ -63,4 +63,27 @@ export function approveBill(billId: string): Promise<Bill> {
 
 export function rejectBill(billId: string, reason: string): Promise<Bill> {
   return post<Bill>(`/bills/${billId}/reject`, { reason })
+}
+
+export function addBillComment(
+  billId: string,
+  comment: string,
+  mentionedUserIds?: string[],
+  attachmentDocumentIds?: string[],
+  replyToMessageId?: string,
+): Promise<Bill> {
+  return post<Bill>(`/bills/${billId}/comments`, {
+    comment,
+    mentioned_user_ids: mentionedUserIds ?? [],
+    attachment_document_ids: attachmentDocumentIds ?? [],
+    reply_to_message_id: replyToMessageId ?? null,
+  })
+}
+
+export function deleteBillComment(
+  billId: string,
+  commentId: string,
+  scope: 'me' | 'everyone',
+): Promise<Bill> {
+  return del<Bill>(`/bills/${billId}/comments/${commentId}?scope=${scope}`)
 }

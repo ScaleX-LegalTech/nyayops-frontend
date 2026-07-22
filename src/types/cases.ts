@@ -1,4 +1,5 @@
 import type { BillFlowDirection } from './bills'
+import type { ThreadComment } from './threads'
 
 export const CASE_STATUSES = [
   'draft',
@@ -104,21 +105,6 @@ export const DOC_TYPE_OPTIONS: Record<CaseLifecycleStage, { value: string; label
   disposed: [{ value: 'final_order', label: 'Final order' }],
 }
 
-export interface CaseCommentAttachment {
-  id: string
-  title: string
-  mime_type: string
-  storage_key: string
-}
-
-export interface CaseComment {
-  id: string
-  author_id: string
-  comment: string
-  created_at: string
-  attachments: CaseCommentAttachment[]
-}
-
 export interface CaseParty {
   id: string
   role: string
@@ -180,7 +166,7 @@ export interface Case {
   scrutiny_reviewed_by: string | null
   scrutiny_reviewed_at: string | null
   scrutiny_rejection_reason: string | null
-  comments: CaseComment[]
+  comments: ThreadComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
   lifecycle_history: CaseLifecycleHistoryEntry[]

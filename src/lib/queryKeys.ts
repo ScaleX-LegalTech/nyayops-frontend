@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type {
+  AuditLogSearchFilters,
   BillCaseTypeCategory,
   BillSearchFilters,
   CaseSearchFilters,
@@ -47,6 +48,7 @@ export const qk = {
   roles: ['roles'] as const,
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
+  auditLogsPage: (filters: AuditLogSearchFilters = {}) => ['audit-logs', 'page', filters] as const,
   notifications: ['notifications'] as const,
   authConfig: ['auth', 'config'] as const,
   organization: ['organization'] as const,
@@ -61,6 +63,11 @@ export const qk = {
   // cross-case list) since it's always self-scoped regardless of granted scope.
   billQueue: ['bills', 'queue'] as const,
   billSummary: ['bills', 'summary'] as const,
+  threadInbox: ['threads', 'inbox'] as const,
+  causeList: (date?: string, scope?: 'mine' | 'all') =>
+    ['cause-list', date ?? 'today', scope ?? 'all'] as const,
+  cnrLookupBusinessDetail: (cnr: string, section: string, row: number) =>
+    ['cnr-lookup', 'business', cnr, section, row] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
