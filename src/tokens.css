@@ -1,45 +1,215 @@
 /*
-  NyayOps color tokens — "Ledger Blue" (see DESIGN.md).
-  Every color used across the app lives here, and only here. To re-theme the whole
-  product, change values in this file; nothing outside it should hold a raw color.
-  All status tokens carry a verified-contrast "-soft" background pair (see the
-  scratch OKLCH→WCAG script from the redesign) for icon-anchored badges.
+|--------------------------------------------------------------------------
+| NyayOps Design Tokens
+| Theme: Ledger Blue
+| Color Space: OKLCH
+|--------------------------------------------------------------------------
 */
+
 @theme {
-  /* Brand (royal blue) + shell (deep navy sidebar/topbar) + accent (amber, sparing emphasis) */
+  /* ==========================================================================
+     BRAND SCALE
+     ========================================================================== */
+
+  --color-brand-50: oklch(0.985 0.006 258);
+  --color-brand-100: oklch(0.965 0.012 258);
+  --color-brand-200: oklch(0.915 0.028 259);
+  --color-brand-300: oklch(0.845 0.065 260);
+  --color-brand-400: oklch(0.695 0.145 261);
+
   --color-brand: oklch(0.546 0.215 262.9);
-  --color-brand-strong: oklch(0.488 0.217 264.4);
-  --color-brand-soft: oklch(0.97 0.014 254.6);
-  --color-shell: oklch(0.208 0.04 265.8);
-  --color-shell-soft: oklch(0.279 0.037 260);
-  --color-shell-ink: oklch(0.984 0.003 247.9);
-  --color-shell-ink-muted: oklch(0.711 0.035 256.8);
-  --color-shell-border: oklch(0.372 0.039 257.3);
+
+  --color-brand-600: oklch(0.488 0.217 264.4);
+  --color-brand-700: oklch(0.428 0.205 266);
+  --color-brand-800: oklch(0.368 0.18 267);
+  --color-brand-900: oklch(0.3 0.145 268);
+  --color-brand-950: oklch(0.22 0.09 268);
+
+  /* Legacy aliases */
+
+  --color-brand-soft: var(--color-brand-100);
+  --color-brand-strong: var(--color-brand-600);
+
+  /* ==========================================================================
+     ACCENT
+     ========================================================================== */
+
+  --color-accent-50: oklch(0.985 0.01 70);
+  --color-accent-100: oklch(0.965 0.02 70);
+
   --color-accent: oklch(0.769 0.165 70.1);
+
   --color-accent-strong: oklch(0.666 0.157 58.3);
 
-  /* Surfaces + ink — cool off-white, tinted toward the brand hue, never pure gray */
-  --color-bg: oklch(0.98 0.005 275);
-  --color-surface: oklch(1 0 0);
-  --color-surface-muted: oklch(0.968 0.007 247.9);
-  --color-ink: oklch(0.279 0.037 260);
-  --color-ink-muted: oklch(0.554 0.041 257.4);
-  --color-ink-faint: oklch(0.711 0.035 256.8);
-  --color-border: oklch(0.928 0.006 264.5);
-  --color-border-strong: oklch(0.872 0.009 258.3);
+  --color-accent-900: oklch(0.42 0.09 58);
 
-  /* Status semantics — each has a base (icon/dot fill, ≥4.5:1 on white), a strong
-     variant (label text on its own soft bg) and a soft bg (tinted badge fill). */
+  /* ==========================================================================
+     APP SHELL
+     ========================================================================== */
+
+  --color-shell: oklch(0.208 0.04 265.8);
+  --color-shell-soft: oklch(0.279 0.037 260);
+
+  --color-shell-ink: oklch(0.984 0.003 247.9);
+  --color-shell-ink-muted: oklch(0.711 0.035 256.8);
+
+  --color-shell-border: oklch(0.372 0.039 257.3);
+
+  /* ==========================================================================
+     SURFACES
+     ========================================================================== */
+
+  --color-bg: oklch(0.98 0.005 275);
+
+  --color-surface: oklch(1 0 0);
+
+  --color-surface-muted: oklch(0.968 0.007 248);
+
+  --color-surface-hover: oklch(0.952 0.008 260);
+
+  --color-surface-active: oklch(0.935 0.01 260);
+
+  --color-surface-selected: oklch(0.94 0.018 258);
+
+  --color-surface-disabled: oklch(0.975 0.002 250);
+
+  /* Elevation */
+
+  --color-surface-raised: oklch(0.995 0.002 260);
+
+  --color-surface-floating: oklch(1 0 0);
+
+  --color-surface-overlay: oklch(1 0 0);
+
+  --color-surface-sunken: oklch(0.945 0.006 255);
+
+  --color-overlay: oklch(0.2 0.03 260 / 0.45);
+
+  /* ==========================================================================
+     TEXT
+     ========================================================================== */
+
+  --color-ink: oklch(0.279 0.037 260);
+
+  --color-ink-muted: oklch(0.554 0.041 257);
+
+  --color-ink-faint: oklch(0.711 0.035 257);
+
+  --color-ink-disabled: oklch(0.78 0.018 257);
+
+  --color-ink-inverse: oklch(0.984 0.003 248);
+
+  /* ==========================================================================
+     BORDERS
+     ========================================================================== */
+
+  --color-border-subtle: oklch(0.955 0.004 260);
+
+  --color-border: oklch(0.928 0.006 264);
+
+  --color-border-strong: oklch(0.872 0.009 258);
+
+  --color-border-focus: oklch(0.546 0.215 262.9);
+
+  /* ==========================================================================
+     INTERACTION
+     ========================================================================== */
+
+  --color-brand-subtle: oklch(0.94 0.025 258);
+
+  --color-brand-disabled: oklch(0.82 0.08 260);
+
+  --color-brand-focus: oklch(0.546 0.215 262.9 / 0.25);
+
+  --color-focus-ring: oklch(0.546 0.215 262.9 / 0.3);
+
+  --color-selection: oklch(0.89 0.06 258);
+
+  --color-highlight: oklch(0.965 0.03 258);
+
+  --color-link: var(--color-brand);
+
+  --color-link-hover: var(--color-brand-600);
+
+  --color-link-visited: oklch(0.47 0.17 295);
+
+  /* ==========================================================================
+     STATUS
+     ========================================================================== */
+
   --color-success: oklch(0.5 0.115 150);
   --color-success-strong: oklch(0.38 0.115 150);
   --color-success-soft: oklch(0.95 0.045 150);
+
   --color-warning: oklch(0.58 0.15 50);
   --color-warning-strong: oklch(0.44 0.14 50);
   --color-warning-soft: oklch(0.95 0.05 50);
+
   --color-danger: oklch(0.53 0.19 27);
   --color-danger-strong: oklch(0.42 0.18 27);
   --color-danger-soft: oklch(0.95 0.04 27);
+
   --color-info: oklch(0.52 0.11 220);
   --color-info-strong: oklch(0.4 0.1 220);
   --color-info-soft: oklch(0.95 0.035 220);
+
+  --color-neutral-status: oklch(0.5 0.02 260);
+  --color-neutral-status-soft: oklch(0.94 0.01 260);
+
+  /* ==========================================================================
+     PRIORITY
+     ========================================================================== */
+
+  --color-priority-low: oklch(0.55 0.08 240);
+  --color-priority-low-soft: oklch(0.96 0.02 240);
+
+  --color-priority-medium: oklch(0.58 0.13 85);
+  --color-priority-medium-soft: oklch(0.96 0.035 85);
+
+  --color-priority-high: oklch(0.52 0.17 35);
+  --color-priority-high-soft: oklch(0.95 0.04 35);
+
+  --color-priority-urgent: oklch(0.48 0.22 25);
+  --color-priority-urgent-soft: oklch(0.92 0.06 25);
+
+  /* ==========================================================================
+     DATA VISUALIZATION
+     ========================================================================== */
+
+  --color-chart-1: oklch(0.6 0.18 262);
+  --color-chart-2: oklch(0.62 0.15 165);
+  --color-chart-3: oklch(0.7 0.15 70);
+  --color-chart-4: oklch(0.63 0.17 25);
+  --color-chart-5: oklch(0.6 0.12 220);
+  --color-chart-6: oklch(0.64 0.18 315);
+  --color-chart-7: oklch(0.56 0.1 110);
+  --color-chart-8: oklch(0.68 0.13 195);
+
+  /* ==========================================================================
+     SHADOW HELPERS
+     ========================================================================== */
+
+  --shadow-color: oklch(0.2 0.03 260 / 0.12);
+
+  --shadow-xs: 0 1px 2px var(--shadow-color);
+
+  --shadow-sm: 0 2px 8px var(--shadow-color);
+
+  --shadow-md: 0 8px 20px var(--shadow-color);
+
+  --shadow-lg: 0 16px 40px var(--shadow-color);
+
+  --shadow-xl: 0 24px 60px var(--shadow-color);
+
+  /* ==========================================================================
+     MISC
+     ========================================================================== */
+
+  --color-skeleton: oklch(0.93 0.006 255);
+
+  --color-skeleton-highlight: oklch(0.97 0.004 255);
+
+  --color-divider: var(--color-border-subtle);
+
+  --color-backdrop: var(--color-overlay);
 }
