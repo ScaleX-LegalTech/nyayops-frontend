@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import {
   downloadCnrLookupOrder,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/cnrLookup'
 import { qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
+import { useUrlState } from '@/lib/useUrlState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -34,8 +35,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 export default function CnrLookupPage() {
-  const [cnr, setCnr] = useState('')
-  const [courtType, setCourtType] = useState('')
+  const [cnr, setCnr] = useUrlState('cnr')
+  const [courtType, setCourtType] = useUrlState('court_type')
   const [result, setResult] = useState<CnrLookupResponse | null>(null)
   const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
 
@@ -57,6 +58,16 @@ export default function CnrLookupPage() {
     onSuccess: (resp) => setResult(resp),
     errorFallback: (err) => (err instanceof Error ? err.message : 'Could not look up this CNR.'),
   })
+
+  // A CNR surviving a refresh in the URL is only half the fix - re-run the lookup too,
+  // so the result the user was looking at comes back instead of just the input text.
+  const autoLookedUp = useRef(false)
+  useEffect(() => {
+    if (autoLookedUp.current || !cnr.trim()) return
+    autoLookedUp.current = true
+    mutation.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only
+  }, [])
 
   const raw = result?.case
   const sections = (raw?.document as Record<string, unknown> | undefined)?.sections as

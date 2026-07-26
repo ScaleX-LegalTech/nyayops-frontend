@@ -44,6 +44,7 @@ import { Table, TBody, Td, Th, THead, TableWrap, Tr } from '@/components/ui/Tabl
 import { EmptyState, ErrorState, LoadingState, Spinner } from '@/components/ui/Feedback'
 import { cn } from '@/lib/cn'
 import { displayName } from '@/lib/formatName'
+import { useUrlState } from '@/lib/useUrlState'
 import type {
   Branch,
   SortDir,
@@ -86,16 +87,16 @@ export default function UsersPage() {
   const [freezing, setFreezing] = useState<User | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const [tab, setTab] = useState<'active' | 'past'>('active')
-  const [q, setQ] = useState('')
-  const [debouncedQ, setDebouncedQ] = useState('')
-  const [branchId, setBranchId] = useState('')
-  const [roleId, setRoleId] = useState('')
-  const [status, setStatus] = useState<UserStatusFilter | ''>('')
-  const [joinedFrom, setJoinedFrom] = useState('')
-  const [joinedTo, setJoinedTo] = useState('')
-  const [sortBy, setSortBy] = useState<UserSortBy>('joined_at')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [tab, setTab] = useUrlState('tab', 'active')
+  const [q, setQ] = useUrlState('q')
+  const [debouncedQ, setDebouncedQ] = useState(q)
+  const [branchId, setBranchId] = useUrlState('branch_id')
+  const [roleId, setRoleId] = useUrlState('role_id')
+  const [status, setStatus] = useUrlState('status')
+  const [joinedFrom, setJoinedFrom] = useUrlState('joined_from')
+  const [joinedTo, setJoinedTo] = useUrlState('joined_to')
+  const [sortBy, setSortBy] = useUrlState('sort_by', 'joined_at')
+  const [sortDir, setSortDir] = useUrlState('sort_dir', 'desc')
   const isPastMembers = tab === 'past'
 
   useEffect(() => {
@@ -108,11 +109,11 @@ export default function UsersPage() {
       q: debouncedQ.trim() || undefined,
       branch_id: branchId || undefined,
       role_id: roleId || undefined,
-      status: isPastMembers ? undefined : status || undefined,
+      status: isPastMembers ? undefined : ((status || undefined) as UserStatusFilter | undefined),
       joined_from: joinedFrom || undefined,
       joined_to: joinedTo || undefined,
-      sort_by: sortBy,
-      sort_dir: sortDir,
+      sort_by: sortBy as UserSortBy,
+      sort_dir: sortDir as SortDir,
       deleted: isPastMembers || undefined,
     }),
     [debouncedQ, branchId, roleId, status, joinedFrom, joinedTo, sortBy, sortDir, isPastMembers],
@@ -120,7 +121,7 @@ export default function UsersPage() {
 
   function toggleSort(col: UserSortBy) {
     if (sortBy === col) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
     } else {
       setSortBy(col)
       setSortDir('asc')

@@ -5,6 +5,7 @@ import { exportAuditLogsCsv, listAuditLogs } from '@/lib/api/audit'
 import { qk } from '@/lib/queryKeys'
 import { formatDateTime, humanize } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { useUrlState } from '@/lib/useUrlState'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -30,9 +31,9 @@ const RESOURCE_TYPES = [
 
 export default function AuditPage() {
   const { toast } = useToast()
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [resource, setResource] = useState('')
+  const [search, setSearch] = useUrlState('q')
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
+  const [resource, setResource] = useUrlState('resource')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)

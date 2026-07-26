@@ -25,6 +25,7 @@ import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { CASE_STATUSES, type CaseDashboardCard, type CaseStatus } from '@/types'
 import { courtLabel, formatDate, humanize } from '@/lib/format'
 import { usePermissions } from '@/lib/usePermissions'
+import { useUrlState } from '@/lib/useUrlState'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -71,9 +72,9 @@ export default function CasesPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<CaseStatus | ''>('')
-  const [sortBy, setSortBy] = useState<SortBy>('created_desc')
+  const [search, setSearch] = useUrlState('q')
+  const [status, setStatus] = useUrlState('status')
+  const [sortBy, setSortBy] = useUrlState('sort', 'created_desc')
   const [creating, setCreating] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -84,7 +85,7 @@ export default function CasesPage() {
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   const filters = useMemo(
-    () => ({ query: search || undefined, status: status || undefined }),
+    () => ({ query: search || undefined, status: (status || undefined) as CaseStatus | undefined }),
     [search, status],
   )
   const {
@@ -105,7 +106,7 @@ export default function CasesPage() {
   })
 
   const cases = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
-  const sortedCases = useMemo(() => sortCases(cases, sortBy), [cases, sortBy])
+  const sortedCases = useMemo(() => sortCases(cases, sortBy as SortBy), [cases, sortBy])
 
   useEffect(() => {
     const sentinel = sentinelRef.current

@@ -7,6 +7,7 @@ import { listBranches } from '@/lib/api/admin'
 import { qk } from '@/lib/queryKeys'
 import { useAuth } from '@/auth/AuthContext'
 import { useUsers } from '@/lib/useUsers'
+import { useUrlState } from '@/lib/useUrlState'
 import { CaseCombobox } from '@/components/ui/CaseCombobox'
 import { Field, Select } from '@/components/ui/Field'
 import { BillStatusBadge, FlowDirectionBadge } from '@/components/ui/Badge'
@@ -32,11 +33,13 @@ export function AllBillsView() {
   const { users } = useUsers()
   const [raisingForCaseId, setRaisingForCaseId] = useState<string | null>(null)
   const [viewingBill, setViewingBill] = useState<Bill | null>(null)
-  const [pendingOnly, setPendingOnly] = useState(true)
-  const [status, setStatus] = useState<BillStatus | ''>('')
-  const [flowDirection, setFlowDirection] = useState<BillFlowDirection | ''>('')
-  const [branchId, setBranchId] = useState('')
-  const [associateId, setAssociateId] = useState('')
+  const [pendingOnlyStr, setPendingOnlyStr] = useUrlState('pending_only', 'true')
+  const pendingOnly = pendingOnlyStr !== 'false'
+  const setPendingOnly = (v: boolean) => setPendingOnlyStr(String(v))
+  const [status, setStatus] = useUrlState('status')
+  const [flowDirection, setFlowDirection] = useUrlState('direction')
+  const [branchId, setBranchId] = useUrlState('branch_id')
+  const [associateId, setAssociateId] = useUrlState('associate_id')
 
   const branchesQuery = useQuery({
     queryKey: qk.branches,
