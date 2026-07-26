@@ -1,27 +1,18 @@
 import type { Case } from './cases'
 
-export interface ConnectedCaseRef {
-  case_number_raw: string | null
-  party_names_raw: string | null
-  // Only set when this connected/companion matter is ALSO one of the firm's own
-  // CNR-linked cases - being clubbed on the same cause-list item does not imply that.
-  cnr: string | null
-  case_type: string | null
-}
-
+// Minimal by the extractor's own 2026-07-26 schema redesign - party/advocate/
+// connected-case/court-number/remark data no longer exists on its entries at all
+// (moved onto its own linked Case, which we don't read); `case` here is already OUR
+// tenant's own Case (parties, client_name, etc.), so nothing is actually lost for
+// this tenant-scoped view.
 export interface CauseListHearingEntry {
   case: Case
   document_id: string
-  item_number: number
-  case_number_raw: string | null
-  party_names_raw: string | null
-  advocates_raw: string[]
-  connected_cases: ConnectedCaseRef[]
-  court_number: string | null
+  item_number: number | null
+  case_number: string | null
   judge: string | null
   sitting_time: string | null
   list_type: string | null
-  remark: string | null
   source_bench_key: string
   bench_name: string | null
 }

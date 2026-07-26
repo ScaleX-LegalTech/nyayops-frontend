@@ -49,8 +49,7 @@ export function CauseListCard() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{entry.case.title}</p>
                   <p className="text-xs text-ink-muted">
-                    Item {entry.item_number}
-                    {entry.court_number ? ` · Court ${entry.court_number}` : ''}
+                    {entry.item_number != null ? `Item ${entry.item_number}` : ''}
                     {entry.judge ? ` · ${entry.judge}` : ''}
                   </p>
                 </div>

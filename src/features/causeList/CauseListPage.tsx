@@ -6,10 +6,8 @@ import {
   ChevronRight,
   Clock,
   ClipboardList,
-  DoorOpen,
   FileText,
   Landmark,
-  Link2,
   User,
 } from 'lucide-react'
 import { downloadCauseListDocument, getCauseList } from '@/lib/api/causeList'
@@ -99,10 +97,10 @@ function CauseListEntryCard({
               </Link>
               {entry.case.cnr && <> &middot; CNR: {entry.case.cnr}</>}
             </p>
-            <p className="mt-1 text-sm font-medium text-ink">{entry.case_number_raw ?? '—'}</p>
-            {entry.party_names_raw && (
-              <p className="text-sm text-ink-muted">{entry.party_names_raw}</p>
+            {entry.case_number && (
+              <p className="mt-1 text-sm font-medium text-ink">{entry.case_number}</p>
             )}
+            <p className="text-sm text-ink-muted">{entry.case.client_name}</p>
           </div>
         </div>
         <Button
@@ -121,40 +119,10 @@ function CauseListEntryCard({
 
       {open && (
         <CardBody className="space-y-3 border-t border-border">
-          {entry.advocates_raw.length > 0 && (
-            <p className="text-sm text-ink-faint">
-              Advocate{entry.advocates_raw.length > 1 ? 's' : ''}:{' '}
-              <span className="text-brand">{entry.advocates_raw.join(', ')}</span>
-            </p>
-          )}
-
-          {entry.connected_cases.length > 0 && (
-            <div className="flex items-start gap-2 rounded-card border border-brand/20 bg-brand-soft/50 p-3">
-              <Link2 className="mt-0.5 size-4 shrink-0 text-brand" />
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-xs font-medium uppercase tracking-wide text-brand-strong">
-                  Connected case{entry.connected_cases.length > 1 ? 's' : ''}
-                </p>
-                {entry.connected_cases.map((c, ci) => (
-                  <p key={ci} className="text-sm text-ink">
-                    <span className="font-medium">{c.case_number_raw ?? '—'}</span>
-                    {c.party_names_raw && <> — {c.party_names_raw}</>}{' '}
-                    <span className="text-xs text-ink-faint">
-                      {c.cnr ? '(also your firm’s case)' : '(not tracked by your firm)'}
-                    </span>
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="overflow-hidden rounded-card border border-border divide-y divide-border">
-            <div className="grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4 sm:divide-y-0">
+            <div className="grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-3 sm:divide-y-0">
               <InfoCell icon={Landmark} label="Court / Bench">
                 {entry.bench_name ?? entry.source_bench_key}
-              </InfoCell>
-              <InfoCell icon={DoorOpen} label="Court room">
-                {entry.court_number ?? '—'}
               </InfoCell>
               <InfoCell icon={Clock} label="Time">
                 {entry.sitting_time ?? '—'}
@@ -171,16 +139,6 @@ function CauseListEntryCard({
                 <p className="text-sm font-medium text-ink">{entry.judge ?? '—'}</p>
               </div>
             </div>
-
-            {entry.remark && (
-              <div className="flex items-start gap-2 p-3">
-                <FileText className="mt-0.5 size-4 shrink-0 text-ink-faint" />
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wide text-ink-faint">Remark</p>
-                  <p className="whitespace-pre-line text-sm text-ink">{entry.remark}</p>
-                </div>
-              </div>
-            )}
           </div>
         </CardBody>
       )}
