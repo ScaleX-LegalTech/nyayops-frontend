@@ -43,6 +43,7 @@ export const qk = {
   roles: ['roles'] as const,
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
+  pendingApprovals: ['assistant', 'pending-approvals'] as const,
   notifications: ['notifications'] as const,
   authConfig: ['auth', 'config'] as const,
   organization: ['organization'] as const,
@@ -57,6 +58,11 @@ export const qk = {
   // cross-case list) since it's always self-scoped regardless of granted scope.
   billQueue: ['bills', 'queue'] as const,
   billSummary: ['bills', 'summary'] as const,
+  askNyayOpsConversations: (q?: string) => ['ask-nyayops', 'conversations', 'list', q ?? ''] as const,
+  // Prefix for invalidating every list variant (all search queries) at once.
+  askNyayOpsConversationsAll: ['ask-nyayops', 'conversations'] as const,
+  askNyayOpsConversation: (id: string) => ['ask-nyayops', 'conversations', id] as const,
+  askNyayOpsArchivedConversations: ['ask-nyayops', 'conversations', 'archived'] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */

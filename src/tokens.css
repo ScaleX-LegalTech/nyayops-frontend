@@ -1,5 +1,5 @@
 /*
-  NyayOps color tokens — "Ledger Blue" (see DESIGN.md).
+  NyayOps color tokens — "Ledger Blue".
   Every color used across the app lives here, and only here. To re-theme the whole
   product, change values in this file; nothing outside it should hold a raw color.
   All status tokens carry a verified-contrast "-soft" background pair (see the

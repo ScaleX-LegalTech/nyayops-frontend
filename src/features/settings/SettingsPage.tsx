@@ -23,6 +23,7 @@ const TABS: SettingsTab[] = [
     label: 'Branch Admins',
     show: (auth) => auth.isManagingDirector,
   },
+  { to: '/settings/approvals', label: 'Approvals', show: (auth) => auth.isManagingDirector },
 ]
 
 export default function SettingsPage() {

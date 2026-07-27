@@ -1,4 +1,3 @@
-import { Scale } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 interface WordmarkProps {
@@ -10,10 +9,8 @@ interface WordmarkProps {
 
 export function Wordmark({ className, subtitle }: WordmarkProps) {
   return (
-    <div className={cn('flex items-center gap-2.5', className)}>
-      <span className="grid size-9 shrink-0 place-items-center rounded-control bg-accent/15 text-accent">
-        <Scale className="size-5" />
-      </span>
+    <div className={cn('flex items-center gap-1.5', className)}>
+      <img src="/logo.png" alt="" className="size-16 shrink-0 object-contain" />
       <div className="min-w-0">
         <span className="type-page-title text-xl text-shell-ink">
           Nyay<span className="text-accent">Ops</span>

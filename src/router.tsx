@@ -16,6 +16,10 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      // Standalone, no AppShell chrome (sidebar/topbar) - a full-page step
+      // like /login, not a dashboard view. Only reached right after
+      // registration; never a forced redirect on later logins.
+      { path: 'setup', ...page(() => import('@/features/auth/OrgSetupPage')) },
       {
         element: <AppShell />,
         children: [
@@ -37,6 +41,7 @@ export const router = createBrowserRouter([
           },
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'bills', ...page(() => import('@/features/bills/BillsPage')) },
+          { path: 'ask-nyayops', ...page(() => import('@/features/ask-nyayops/AskNyayOpsPage')) },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },
           { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },
@@ -61,6 +66,10 @@ export const router = createBrowserRouter([
                   {
                     path: 'branch-admins',
                     ...page(() => import('@/features/admin/BranchAdminsPage')),
+                  },
+                  {
+                    path: 'approvals',
+                    ...page(() => import('@/features/admin/ApprovalsPage')),
                   },
                 ],
               },

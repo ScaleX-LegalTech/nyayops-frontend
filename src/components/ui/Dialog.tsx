@@ -82,7 +82,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 flex items-end justify-center p-0 sm:items-center sm:p-4 lg:left-64"
       style={{ zIndex: 'var(--z-modal)' }}
       role="dialog"
       aria-modal="true"

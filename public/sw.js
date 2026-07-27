@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
       }
       return self.registration.showNotification(data.title || 'NyayOps', {
         body: data.title,
-        icon: '/favicon.svg',
+        icon: '/logo.png',
         data: { link },
       })
     }),

@@ -5,6 +5,7 @@ import {
   IndianRupee,
   LayoutDashboard,
   ScrollText,
+  Sparkles,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -54,6 +55,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Bills',
         icon: IndianRupee,
         permission: { resource: 'bills', action: 'read' },
+      },
+      {
+        to: '/ask-nyayops',
+        label: 'Ask NyayOps',
+        icon: Sparkles,
+        permission: { resource: 'assistant', action: 'use' },
       },
     ],
   },
