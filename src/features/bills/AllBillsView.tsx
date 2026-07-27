@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { IndianRupee } from 'lucide-react'
+import { IndianRupee, MessageSquare } from 'lucide-react'
 import { listBills } from '@/lib/api/bills'
 import { listBranches } from '@/lib/api/admin'
 import { qk } from '@/lib/queryKeys'
 import { useAuth } from '@/auth/AuthContext'
 import { useUsers } from '@/lib/useUsers'
+import { useUrlState } from '@/lib/useUrlState'
 import { CaseCombobox } from '@/components/ui/CaseCombobox'
 import { Field, Select } from '@/components/ui/Field'
 import { BillStatusBadge, FlowDirectionBadge } from '@/components/ui/Badge'
@@ -32,11 +33,13 @@ export function AllBillsView() {
   const { users } = useUsers()
   const [raisingForCaseId, setRaisingForCaseId] = useState<string | null>(null)
   const [viewingBill, setViewingBill] = useState<Bill | null>(null)
-  const [pendingOnly, setPendingOnly] = useState(true)
-  const [status, setStatus] = useState<BillStatus | ''>('')
-  const [flowDirection, setFlowDirection] = useState<BillFlowDirection | ''>('')
-  const [branchId, setBranchId] = useState('')
-  const [associateId, setAssociateId] = useState('')
+  const [pendingOnlyStr, setPendingOnlyStr] = useUrlState('pending_only', 'true')
+  const pendingOnly = pendingOnlyStr !== 'false'
+  const setPendingOnly = (v: boolean) => setPendingOnlyStr(String(v))
+  const [status, setStatus] = useUrlState('status')
+  const [flowDirection, setFlowDirection] = useUrlState('direction')
+  const [branchId, setBranchId] = useUrlState('branch_id')
+  const [associateId, setAssociateId] = useUrlState('associate_id')
 
   const branchesQuery = useQuery({
     queryKey: qk.branches,
@@ -149,6 +152,7 @@ export function AllBillsView() {
                 <Th>Amount</Th>
                 <Th>Direction</Th>
                 <Th>Status</Th>
+                <Th />
               </Tr>
             </THead>
             <TBody>
@@ -179,6 +183,16 @@ export function AllBillsView() {
                   </Td>
                   <Td>
                     <BillStatusBadge status={bill.status} />
+                  </Td>
+                  <Td>
+                    <Link
+                      to={`/bills/${bill.id}/thread`}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Open chat"
+                      className="grid size-8 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-brand"
+                    >
+                      <MessageSquare className="size-4" />
+                    </Link>
                   </Td>
                 </Tr>
               ))}

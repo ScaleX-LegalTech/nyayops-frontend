@@ -1,3 +1,6 @@
+import type { BillFlowDirection } from './bills'
+import type { ThreadComment } from './threads'
+
 export const CASE_STATUSES = [
   'draft',
   'new',
@@ -102,21 +105,6 @@ export const DOC_TYPE_OPTIONS: Record<CaseLifecycleStage, { value: string; label
   disposed: [{ value: 'final_order', label: 'Final order' }],
 }
 
-export interface CaseCommentAttachment {
-  id: string
-  title: string
-  mime_type: string
-  storage_key: string
-}
-
-export interface CaseComment {
-  id: string
-  author_id: string
-  comment: string
-  created_at: string
-  attachments: CaseCommentAttachment[]
-}
-
 export interface CaseParty {
   id: string
   role: string
@@ -178,7 +166,7 @@ export interface Case {
   scrutiny_reviewed_by: string | null
   scrutiny_reviewed_at: string | null
   scrutiny_rejection_reason: string | null
-  comments: CaseComment[]
+  comments: ThreadComment[]
   parties: CaseParty[]
   history: CaseHistoryEntry[]
   lifecycle_history: CaseLifecycleHistoryEntry[]
@@ -331,7 +319,7 @@ export interface CaseSearchFilters {
 // backend. Only what's actually rendered anywhere a case shows up as a row/card.
 export interface CaseDashboardCard {
   id: string
-  branch_id: string | null
+  branch_name: string | null
   case_code: string
   title: string
   client_name: string
@@ -344,6 +332,8 @@ export interface CaseDashboardCard {
   scrutiny_review_status: 'approved' | 'rejected' | null
   assignee_names: string[]
   created_at: string
+  billing_stage: BillFlowDirection | null
+  billing_type: string | null
 }
 
 export interface CasePage {

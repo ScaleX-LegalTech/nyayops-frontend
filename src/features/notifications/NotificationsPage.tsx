@@ -24,7 +24,11 @@ export default function NotificationsPage() {
   const { data: notifications = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.notifications,
     queryFn: listNotifications,
-    refetchInterval: 15_000,
+    // AppShell's SSE connection (see its useEffect) is the primary low-latency
+    // channel - this interval is just a correctness backstop for whatever the
+    // stream might miss, matching NotificationsBell rather than this page's old
+    // dedicated 15s poll.
+    refetchInterval: 2 * 60_000,
     refetchOnWindowFocus: true,
   })
 

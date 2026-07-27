@@ -23,6 +23,7 @@ import {
 import { qk } from '@/lib/queryKeys'
 import { formatBytes, formatDateTime, humanize } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
+import { useUrlState } from '@/lib/useUrlState'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -49,8 +50,8 @@ export default function DocumentsPage() {
   const { toast } = useToast()
   const { isManagingDirector, isBranchAdmin } = useAuth()
   const isAdmin = isManagingDirector || isBranchAdmin
-  const [caseId, setCaseId] = useState('')
-  const [title, setTitle] = useState('')
+  const [caseId, setCaseId] = useUrlState('case_id')
+  const [title, setTitle] = useUrlState('title')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [uploadNew, setUploadNew] = useState(false)
   const [versionFor, setVersionFor] = useState<{ id: string; caseId: string } | null>(null)

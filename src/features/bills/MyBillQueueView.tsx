@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { IndianRupee } from 'lucide-react'
+import { IndianRupee, MessageSquare } from 'lucide-react'
 import { getMyBillQueue, markBillContacted } from '@/lib/api/bills'
 import { invalidateCaseScopes, qk } from '@/lib/queryKeys'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
@@ -87,6 +87,12 @@ export function MyBillQueueView() {
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-2">
+                      <Link
+                        to={`/bills/${bill.id}/thread`}
+                        className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs text-ink-muted hover:text-ink"
+                      >
+                        <MessageSquare className="size-3.5" /> Thread
+                      </Link>
                       {bill.status === 'raised' && (
                         <Button
                           size="sm"

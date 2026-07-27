@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,12 +7,15 @@ import { useAuth } from '@/auth/AuthContext'
 import { enablePushNotifications, ensureFreshPushSubscription, isPushSupported } from '@/lib/push'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { getOrganizationName } from '@/lib/api/organization'
+import { createStreamToken } from '@/lib/api/notifications'
+import { API_BASE_URL } from '@/lib/api/client'
 import { qk } from '@/lib/queryKeys'
 import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
 import { NotificationsBell } from './NotificationsBell'
 import { UserMenu } from './UserMenu'
 import { AskNyayOpsLauncher } from '@/features/ask-nyayops/AskNyayOpsLauncher'
+import { GlobalSearch, type GlobalSearchHandle } from './GlobalSearch'
 
 // How long to let the shell render before asking - a permission prompt on a blank
 // screen reads as spam.
@@ -23,6 +26,18 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { isManagingDirector } = useAuth()
+  const searchRef = useRef<GlobalSearchHandle>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   // Same queryKey as Sidebar's own getOrganizationName call, so this shares that
   // cache entry instead of firing a second request - is_frozen/frozen_by ride along.
   const { data: org } = useQuery({
@@ -74,6 +89,47 @@ export function AppShell() {
     navigator.serviceWorker.addEventListener('message', onMessage)
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [queryClient, toast])
+
+  // Live notifications over SSE instead of NotificationsBell's old 15s poll - the
+  // stream token is short-lived (see backend Settings.sse_token_ttl_minutes), so a
+  // dropped connection reconnects with a freshly minted one rather than relying on
+  // EventSource's native retry, which would keep reusing the now-expired token in
+  // its URL and 401 forever.
+  useEffect(() => {
+    let cancelled = false
+    let source: EventSource | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    async function connect() {
+      if (cancelled) return
+      try {
+        const { token } = await createStreamToken()
+        if (cancelled) return
+        source = new EventSource(
+          `${API_BASE_URL}/notifications/stream?token=${encodeURIComponent(token)}`,
+        )
+        source.onmessage = (event) => {
+          if (event.data === 'notification') {
+            queryClient.invalidateQueries({ queryKey: qk.notifications })
+          }
+        }
+        source.onerror = () => {
+          source?.close()
+          source = null
+          if (!cancelled) retryTimer = setTimeout(connect, 3000)
+        }
+      } catch {
+        if (!cancelled) retryTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+
+    return () => {
+      cancelled = true
+      source?.close()
+      if (retryTimer) clearTimeout(retryTimer)
+    }
+  }, [queryClient])
 
   return (
     <div className="flex min-h-screen bg-bg">
@@ -142,6 +198,7 @@ export function AppShell() {
             <Menu className="size-5" />
           </button>
           <div className="flex-1" />
+          <GlobalSearch ref={searchRef} />
           <NotificationsBell />
           <UserMenu />
         </header>

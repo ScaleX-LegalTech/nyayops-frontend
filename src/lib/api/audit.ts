@@ -1,9 +1,11 @@
-import type { AuditLog } from '@/types'
-import { API_BASE_URL, get } from './client'
+import type { AuditLog, AuditLogPageResponse, AuditLogSearchFilters } from '@/types'
+import { API_BASE_URL, get, toQuery } from './client'
 import { getAccessToken } from './tokens'
 
-export function listAuditLogs(): Promise<AuditLog[]> {
-  return get<AuditLog[]>('/audit-logs')
+export function listAuditLogs(
+  filters: AuditLogSearchFilters = {},
+): Promise<AuditLogPageResponse> {
+  return get<AuditLogPageResponse>(`/audit-logs${toQuery(filters)}`)
 }
 
 export function listCaseActivity(caseId: string): Promise<AuditLog[]> {

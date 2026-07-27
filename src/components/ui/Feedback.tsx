@@ -59,6 +59,9 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
 /** Friendly error block. 403s get a tailored access message. */
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const is403 = error instanceof ApiError && error.status === 403
+  // A 404 is as pointless to retry as a 403 - the resource doesn't exist (deleted,
+  // wrong id, never did), not a transient failure - "Try again" would just 404 again.
+  const is404 = error instanceof ApiError && error.status === 404
   const message = is403
     ? "You don't have permission to view this. Ask an org admin to grant access."
     : error instanceof Error
@@ -67,16 +70,26 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
       <p className="text-base font-semibold text-ink">
-        {is403 ? 'Access restricted' : 'Unable to load'}
+        {is403 ? 'Access restricted' : is404 ? 'Not found' : 'Unable to load'}
       </p>
       <p className="max-w-sm text-sm text-ink-muted">{message}</p>
-      {onRetry && !is403 && (
+      {is404 ? (
         <button
-          onClick={onRetry}
+          onClick={() => window.history.back()}
           className="text-sm font-medium text-brand hover:text-brand-strong"
         >
-          Try again
+          Go back
         </button>
+      ) : (
+        onRetry &&
+        !is403 && (
+          <button
+            onClick={onRetry}
+            className="text-sm font-medium text-brand hover:text-brand-strong"
+          >
+            Try again
+          </button>
+        )
       )}
     </div>
   )

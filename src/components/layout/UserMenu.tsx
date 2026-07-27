@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { PersonAvatar } from '@/components/ui/Avatar'
+import { displayName } from '@/lib/formatName'
+import { getMe } from '@/lib/api/profile'
+import { qk } from '@/lib/queryKeys'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
+  const { data: profile } = useQuery({ queryKey: qk.myProfile, queryFn: getMe })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -18,7 +23,8 @@ export function UserMenu() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
-  const email = user?.email ?? 'Unknown user'
+  const name = profile ? displayName(profile) : user?.email ?? 'Unknown user'
+  const email = user?.email ?? ''
 
   return (
     <div className="relative" ref={ref}>
@@ -26,9 +32,9 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2.5 rounded-control py-1 pl-1 pr-2 hover:bg-surface-muted"
       >
-        <PersonAvatar label={email} />
+        <PersonAvatar label={name} />
         <span className="hidden max-w-40 truncate text-sm font-medium text-ink sm:block">
-          {email}
+          {name}
         </span>
       </button>
 
@@ -38,7 +44,8 @@ export function UserMenu() {
           style={{ zIndex: 'var(--z-dropdown)' }}
         >
           <div className="border-b border-border px-4 py-3">
-            <p className="truncate text-sm font-medium text-ink">{email}</p>
+            <p className="truncate text-sm font-medium text-ink">{name}</p>
+            <p className="truncate text-xs text-ink-muted">{email}</p>
             <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
               {user?.is_org_admin ? (
                 <>

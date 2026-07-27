@@ -1,6 +1,6 @@
 import { get, toQuery } from './client'
 
-export type SearchResultType = 'case' | 'document' | 'user' | 'issue' | 'payment'
+export type SearchResultType = 'case' | 'document' | 'user' | 'issue' | 'payment' | 'bill' | 'branch'
 
 export interface SearchResultItem {
   type: SearchResultType

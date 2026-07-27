@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type {
+  AuditLogSearchFilters,
   BillCaseTypeCategory,
   BillSearchFilters,
   CaseSearchFilters,
@@ -16,6 +17,10 @@ export const qk = {
   overdue: ['dashboard', 'overdue'] as const,
   scrutinyActionRequired: ['dashboard', 'scrutiny-action-required'] as const,
   myWork: ['dashboard', 'my-work'] as const,
+  issuesSummary: ['dashboard', 'issues-summary'] as const,
+  paymentStatusSummary: ['dashboard', 'payment-status'] as const,
+  upcomingHearings: ['dashboard', 'upcoming-hearings'] as const,
+  recentActivity: ['dashboard', 'recent-activity'] as const,
   cases: (filters: CaseSearchFilters = {}) => ['cases', 'list', filters] as const,
   caseOptions: (filters: CaseSearchFilters = {}) => ['cases', 'options', filters] as const,
   caseDetail: (id: string) => ['cases', 'detail', id] as const,
@@ -43,6 +48,7 @@ export const qk = {
   roles: ['roles'] as const,
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
+  auditLogsPage: (filters: AuditLogSearchFilters = {}) => ['audit-logs', 'page', filters] as const,
   pendingApprovals: ['assistant', 'pending-approvals'] as const,
   notifications: ['notifications'] as const,
   authConfig: ['auth', 'config'] as const,
@@ -63,6 +69,11 @@ export const qk = {
   askNyayOpsConversationsAll: ['ask-nyayops', 'conversations'] as const,
   askNyayOpsConversation: (id: string) => ['ask-nyayops', 'conversations', id] as const,
   askNyayOpsArchivedConversations: ['ask-nyayops', 'conversations', 'archived'] as const,
+  threadInbox: ['threads', 'inbox'] as const,
+  causeList: (date?: string, scope?: 'mine' | 'all') =>
+    ['cause-list', date ?? 'today', scope ?? 'all'] as const,
+  cnrLookupBusinessDetail: (cnr: string, section: string, row: number) =>
+    ['cnr-lookup', 'business', cnr, section, row] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */

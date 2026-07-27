@@ -37,3 +37,59 @@ export const ACTION_LABELS: Record<string, string> = {
   CASE_RESTORED: 'Case restored',
   CASE_COMMENT_ADDED: 'Comment added',
 }
+
+interface ActivityLike {
+  action_type: string
+  previous_state: Record<string, unknown> | null
+  new_state: Record<string, unknown> | null
+}
+
+function idList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+}
+
+function namesOf(ids: string[], nameOf: (id: string) => string): string {
+  return ids.map(nameOf).join(', ')
+}
+
+/** Turns an activity log's before/after state into a human sentence fragment,
+ * e.g. "assigned Ajay Verma, Priya Sharma" or "changed status from New to
+ * Assigned" - falls back to the generic ACTION_LABELS entry when a type has
+ * no fields worth diffing. */
+export function describeActivity(log: ActivityLike, nameOf: (id: string) => string): string {
+  const prev = log.previous_state ?? {}
+  const next = log.new_state ?? {}
+  switch (log.action_type) {
+    case 'CASE_ASSIGNED':
+    case 'CASE_BULK_ASSIGNED': {
+      const before = new Set(idList(prev.assigned_user_ids))
+      const after = idList(next.assigned_user_ids)
+      const added = after.filter((id) => !before.has(id))
+      return added.length > 0
+        ? `assigned ${namesOf(added, nameOf)}`
+        : (ACTION_LABELS.CASE_ASSIGNED ?? '').toLowerCase()
+    }
+    case 'CASE_REASSIGNED': {
+      const before = idList(prev.assigned_user_ids)
+      const after = idList(next.assigned_user_ids)
+      if (before.length === 0 && after.length > 0) return `reassigned to ${namesOf(after, nameOf)}`
+      if (after.length === 0) return 'reassigned'
+      return `reassigned from ${namesOf(before, nameOf)} to ${namesOf(after, nameOf)}`
+    }
+    case 'CASE_STATUS_UPDATED': {
+      const from = typeof prev.status === 'string' ? prev.status : null
+      const to = typeof next.status === 'string' ? next.status : null
+      if (from && to) return `changed status from ${humanizeStatus(from)} to ${humanizeStatus(to)}`
+      return (ACTION_LABELS.CASE_STATUS_UPDATED ?? '').toLowerCase()
+    }
+    default:
+      return (ACTION_LABELS[log.action_type] ?? log.action_type).toLowerCase()
+  }
+}
+
+function humanizeStatus(value: string): string {
+  return value
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}

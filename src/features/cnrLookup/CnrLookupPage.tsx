@@ -1,0 +1,203 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Loader2 } from 'lucide-react'
+import {
+  downloadCnrLookupOrder,
+  getCnrLookupBusinessDetail,
+  loadCnrLookupOrderBlob,
+  lookupCnr,
+} from '@/lib/api/cnrLookup'
+import { qk } from '@/lib/queryKeys'
+import { useMutationWithToast } from '@/lib/useMutationWithToast'
+import { useUrlState } from '@/lib/useUrlState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Card, CardBody } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { EmptyState } from '@/components/ui/Feedback'
+import { DocumentPreviewDialog, type PreviewTarget } from '@/components/ui/DocumentPreviewDialog'
+import { formatDate } from '@/lib/format'
+import {
+  cellValue,
+  RawSection,
+  type BusinessDetailActions,
+  type OrderActions,
+} from '@/features/cases/CaseDocumentSections'
+import type { CnrLookupResponse } from '@/types'
+
+// The extractor fetches a not-yet-cached CNR lazily (queued on first request) - poll
+// instead of making the user click "Check again" themselves. Bounded so a genuinely
+// stuck/slow portal fetch still ends in a real error, not an infinite spinner.
+const LOOKUP_POLL_TIMEOUT_MS = 25_000
+const LOOKUP_POLL_INTERVAL_MS = 3_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export default function CnrLookupPage() {
+  const [cnr, setCnr] = useUrlState('cnr')
+  const [courtType, setCourtType] = useUrlState('court_type')
+  const [result, setResult] = useState<CnrLookupResponse | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
+
+  const mutation = useMutationWithToast({
+    mutationFn: async () => {
+      const deadline = Date.now() + LOOKUP_POLL_TIMEOUT_MS
+      let resp = await lookupCnr(cnr.trim().toUpperCase(), courtType || undefined)
+      while (resp.status === 'queued' && Date.now() < deadline) {
+        await sleep(LOOKUP_POLL_INTERVAL_MS)
+        resp = await lookupCnr(cnr.trim().toUpperCase(), courtType || undefined)
+      }
+      if (resp.status === 'queued') {
+        throw new Error(
+          'Still fetching from the court portal after a while — try again in a minute.',
+        )
+      }
+      return resp
+    },
+    onSuccess: (resp) => setResult(resp),
+    errorFallback: (err) => (err instanceof Error ? err.message : 'Could not look up this CNR.'),
+  })
+
+  // A CNR surviving a refresh in the URL is only half the fix - re-run the lookup too,
+  // so the result the user was looking at comes back instead of just the input text.
+  const autoLookedUp = useRef(false)
+  useEffect(() => {
+    if (autoLookedUp.current || !cnr.trim()) return
+    autoLookedUp.current = true
+    mutation.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only
+  }, [])
+
+  const raw = result?.case
+  const sections = (raw?.document as Record<string, unknown> | undefined)?.sections as
+    | Record<string, unknown>[]
+    | undefined
+  const resolvedCnr = (raw?.cnr as string | undefined) ?? cnr
+
+  const orderActions: OrderActions = {
+    download: downloadCnrLookupOrder,
+    loadBlob: loadCnrLookupOrderBlob,
+  }
+  const businessDetailActions: BusinessDetailActions = {
+    queryKey: (section, row) => qk.cnrLookupBusinessDetail(resolvedCnr, section, row),
+    fetch: (section, row) => getCnrLookupBusinessDetail(resolvedCnr, section, row),
+  }
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="CNR lookup"
+        description="Look up any case by its CNR, straight from the court portal - not linked to any of your cases."
+      />
+      <Card>
+        <CardBody>
+          <form
+            onSubmit={(e: FormEvent) => {
+              e.preventDefault()
+              mutation.mutate()
+            }}
+            className="flex flex-wrap items-end gap-4"
+          >
+            <Field label="CNR number" required className="min-w-[240px] flex-1">
+              <Input
+                value={cnr}
+                onChange={(e) => setCnr(e.target.value.toUpperCase())}
+                placeholder="HCBM010289472025"
+                required
+              />
+            </Field>
+            <Field label="Court type" hint="Leave blank to auto-detect." className="w-48">
+              <Select value={courtType} onChange={(e) => setCourtType(e.target.value)}>
+                <option value="">Auto-detect</option>
+                <option value="high_court">High Court</option>
+                <option value="district_court">District Court</option>
+              </Select>
+            </Field>
+            <Button type="submit" loading={mutation.isPending} disabled={!cnr.trim()}>
+              Look up
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      {mutation.isPending && (
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="size-4 animate-spin" />
+          Still fetching from the court portal (this can take a little while, especially for
+          district courts)…
+        </p>
+      )}
+
+      {result?.status === 'fresh' && raw && (
+        <div className="mx-auto max-w-5xl space-y-5">
+          <div className="rounded-card border border-brand/20 bg-brand-soft px-5 py-4">
+            <p className="text-base font-semibold text-brand-strong">
+              {cellValue(raw.case_type)} · {cellValue(raw.registration_number)}
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 sm:grid-cols-4">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">CNR</dt>
+                <dd className="mt-0.5 text-sm text-ink">{cellValue(raw.cnr)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">Court type</dt>
+                <dd className="mt-0.5 text-sm text-ink">{cellValue(raw.court_type)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">Status</dt>
+                <dd className="mt-0.5 text-sm text-ink">
+                  {cellValue(raw.current_status)}
+                  {raw.current_stage ? ` (${cellValue(raw.current_stage)})` : ''}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">Judge</dt>
+                <dd className="mt-0.5 text-sm text-ink">{cellValue(raw.current_judge)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">Filing date</dt>
+                <dd className="mt-0.5 text-sm text-ink">
+                  {formatDate(raw.filing_date as string | null)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-brand-strong/70">Next hearing</dt>
+                <dd className="mt-0.5 text-sm text-ink">
+                  {formatDate(raw.next_hearing_date as string | null)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {sections?.length ? (
+            sections.map((section, i) => (
+              <RawSection
+                key={i}
+                section={section}
+                onPreview={setPreviewTarget}
+                orderActions={orderActions}
+                businessDetailActions={businessDetailActions}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-ink-muted">No portal document captured.</p>
+          )}
+        </div>
+      )}
+
+      {!result && (
+        <EmptyState
+          title="Enter a CNR to look it up"
+          description="Works for any case, whether or not it's tracked in NyayOps."
+        />
+      )}
+
+      <DocumentPreviewDialog
+        open={!!previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        target={previewTarget}
+      />
+    </div>
+  )
+}

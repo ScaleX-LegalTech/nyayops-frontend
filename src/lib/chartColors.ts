@@ -1,18 +1,20 @@
 /**
  * Recharts reads `fill`/`stroke` as plain SVG attributes, which can't resolve
- * CSS custom properties — so these mirror the `@theme` tokens in index.css as
- * literal hex strings. Keep in sync if the palette changes.
+ * CSS custom properties — so these mirror the OKLCH `@theme` tokens in
+ * tokens.css as literal hex strings (resolved via canvas 2D fillStyle, the one
+ * reliable way to get an OKLCH->sRGB conversion that matches what the browser
+ * actually paints). Keep in sync if the palette in tokens.css changes.
  */
 export const STATUS_COLORS = [
-  '#8C6A2E', // brand / accent (bronze)
-  '#3C4A52', // info / normal
-  '#8C6A2E', // accent
-  '#8C6A2E', // warning / soon (reuses accent bronze)
-  '#3F5C43', // success
-  '#7A3B32', // danger / urgent
-  '#6E6A61', // neutral
+  '#2563EB', // brand (--color-brand)
+  '#007694', // info (--color-info)
+  '#26753E', // success (--color-success)
+  '#BE5A0A', // warning (--color-warning)
+  '#C22826', // danger (--color-danger)
+  '#1D4ED8', // brand-strong (--color-brand-strong)
+  '#64748B', // neutral (--color-ink-muted)
 ]
 
-export const CHART_AXIS_TICK = '#6E6A61'
-export const CHART_TOOLTIP_CURSOR = '#F8F7F3'
-export const CHART_BAR_FILL = '#8C6A2E'
+export const CHART_AXIS_TICK = '#64748B' // --color-ink-muted
+export const CHART_TOOLTIP_CURSOR = '#F1F5F9' // --color-surface-muted
+export const CHART_BAR_FILL = '#2563EB' // --color-brand

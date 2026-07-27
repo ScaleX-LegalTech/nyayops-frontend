@@ -2,8 +2,31 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ProtectedRoute, RequireManagingDirector, RequireManageRoles } from '@/auth/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 
+// Vite's chunk filenames are content-hashed and rotate on every deploy - old ones get
+// deleted from the server. A tab left open across a deploy (or navigating to a route
+// not yet visited this session) can try to lazy-import a chunk that's already gone,
+// throwing "Failed to fetch dynamically imported module" straight into react-router's
+// default (raw, user-facing) error screen. One full reload picks up the new
+// index.html/asset manifest and fixes it - guarded by sessionStorage so a genuinely
+// broken chunk doesn't reload-loop forever.
+const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
+
 const page = (loader: () => Promise<{ default: React.ComponentType }>) => ({
-  lazy: async () => ({ Component: (await loader()).default }),
+  lazy: async () => {
+    try {
+      const Component = (await loader()).default
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+      return { Component }
+    } catch (err) {
+      const isStaleChunk = err instanceof Error && /dynamically imported module/i.test(err.message)
+      if (isStaleChunk && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+        window.location.reload()
+        return new Promise(() => {}) as never // reload takes over before this matters
+      }
+      throw err
+    }
+  },
 })
 
 export const router = createBrowserRouter([
@@ -42,7 +65,23 @@ export const router = createBrowserRouter([
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'bills', ...page(() => import('@/features/bills/BillsPage')) },
           { path: 'ask-nyayops', ...page(() => import('@/features/ask-nyayops/AskNyayOpsPage')) },
+          { path: 'bills/:billId/thread', ...page(() => import('@/features/bills/BillThreadPage')) },
+          {
+            path: 'cases/bills/:billId/thread',
+            ...page(() => import('@/features/bills/BillThreadPage')),
+          },
           { path: 'documents', ...page(() => import('@/features/documents/DocumentsPage')) },
+          { path: 'chats', ...page(() => import('@/features/threads/InboxPage')) },
+          { path: 'cause-list', ...page(() => import('@/features/causeList/CauseListPage')) },
+          { path: 'cnr-lookup', ...page(() => import('@/features/cnrLookup/CnrLookupPage')) },
+          {
+            path: 'chats/cases/:caseId/thread',
+            ...page(() => import('@/features/cases/CaseThreadPage')),
+          },
+          {
+            path: 'chats/bills/:billId/thread',
+            ...page(() => import('@/features/bills/BillThreadPage')),
+          },
           { path: 'admin/users', ...page(() => import('@/features/admin/UsersPage')) },
           { path: 'audit', ...page(() => import('@/features/audit/AuditPage')) },
           { path: 'notifications', ...page(() => import('@/features/notifications/NotificationsPage')) },

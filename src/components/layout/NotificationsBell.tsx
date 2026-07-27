@@ -25,7 +25,11 @@ export function NotificationsBell() {
   const { data: notifications = [] } = useQuery({
     queryKey: qk.notifications,
     queryFn: listNotifications,
-    refetchInterval: 15_000,
+    // AppShell's SSE connection (see its useEffect) is the primary low-latency
+    // channel now - this interval is just a correctness backstop for whatever the
+    // stream might miss (a server restart between reconnects, a dropped Redis
+    // publish), not the main delivery path anymore.
+    refetchInterval: 2 * 60_000,
     refetchOnWindowFocus: true,
   })
 
