@@ -39,11 +39,16 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      // Standalone, no AppShell chrome (sidebar/topbar) - a full-page step
+      // like /login, not a dashboard view. Only reached right after
+      // registration; never a forced redirect on later logins.
+      { path: 'setup', ...page(() => import('@/features/auth/OrgSetupPage')) },
       {
         element: <AppShell />,
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', ...page(() => import('@/features/dashboard/DashboardPage')) },
+          { path: 'calendar', ...page(() => import('@/features/calendar/CalendarPage')) },
           { path: 'cases', ...page(() => import('@/features/cases/CasesPage')) },
           { path: 'cases/:caseId', ...page(() => import('@/features/cases/CaseDetailPage')) },
           {
@@ -60,6 +65,7 @@ export const router = createBrowserRouter([
           },
           { path: 'review', ...page(() => import('@/features/review/ReviewPage')) },
           { path: 'bills', ...page(() => import('@/features/bills/BillsPage')) },
+          { path: 'ask-nyayops', ...page(() => import('@/features/ask-nyayops/AskNyayOpsPage')) },
           { path: 'bills/:billId/thread', ...page(() => import('@/features/bills/BillThreadPage')) },
           {
             path: 'cases/bills/:billId/thread',
@@ -100,6 +106,10 @@ export const router = createBrowserRouter([
                   {
                     path: 'branch-admins',
                     ...page(() => import('@/features/admin/BranchAdminsPage')),
+                  },
+                  {
+                    path: 'approvals',
+                    ...page(() => import('@/features/admin/ApprovalsPage')),
                   },
                 ],
               },

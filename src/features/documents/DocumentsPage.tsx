@@ -158,7 +158,7 @@ export default function DocumentsPage() {
                 <Th>Type</Th>
                 <Th>Case</Th>
                 <Th>Versions</Th>
-                <Th>Latest scan</Th>
+                {isAdmin && <Th>Latest scan</Th>}
                 <Th className="text-right">Actions</Th>
               </Tr>
             </THead>
@@ -184,7 +184,7 @@ export default function DocumentsPage() {
                       </Td>
                       <Td className="font-medium text-ink">
                         {doc.title}
-                        {doc.is_quarantined && (
+                        {isAdmin && doc.is_quarantined && (
                           <Badge tone="danger" className="ml-2">
                             Quarantined
                           </Badge>
@@ -193,13 +193,15 @@ export default function DocumentsPage() {
                       <Td className="text-ink-muted">{humanize(doc.doc_type)}</Td>
                       <Td className="text-ink-muted">{doc.case_title}</Td>
                       <Td className="tabular text-ink-muted">{doc.version_count}</Td>
-                      <Td>
-                        {latest && (
-                          <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
-                            {humanize(latest.virus_scan_status)}
-                          </Badge>
-                        )}
-                      </Td>
+                      {isAdmin && (
+                        <Td>
+                          {latest && (
+                            <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
+                              {humanize(latest.virus_scan_status)}
+                            </Badge>
+                          )}
+                        </Td>
+                      )}
                       <Td>
                         <div className="flex justify-end gap-1">
                           <Button
@@ -262,6 +264,7 @@ export default function DocumentsPage() {
                             }
                             onPreview={setPreviewTarget}
                             onDownload={handleDownload}
+                            isAdmin={isAdmin}
                           />
                         </Td>
                       </Tr>
@@ -406,6 +409,7 @@ export function VersionHistory({
   onRollback,
   onPreview,
   onDownload,
+  isAdmin = false,
 }: {
   documentId: string
   docTitle: string
@@ -414,6 +418,9 @@ export function VersionHistory({
   onRollback: (versionId: string) => void
   onPreview: (target: PreviewTarget) => void
   onDownload: (storageKey: string) => void
+  /** Raw file size is internal metadata, not something an end user needs -
+   * only shown to admins, same as the scan-status badges. */
+  isAdmin?: boolean
 }) {
   const { data, isLoading } = useQuery({
     queryKey: qk.documentDetail(documentId),
@@ -443,7 +450,7 @@ export function VersionHistory({
             className="flex flex-wrap items-center gap-3 rounded-control bg-surface px-3 py-2 text-sm"
           >
             <Badge tone={idx === 0 ? 'brand' : 'neutral'}>v{v.version_number}</Badge>
-            <span className="text-ink-muted">{formatBytes(v.file_size_bytes)}</span>
+            {isAdmin && <span className="text-ink-muted">{formatBytes(v.file_size_bytes)}</span>}
             <span className="text-ink-muted">{v.uploaded_by_name}</span>
             <span className="text-ink-faint">{formatDateTime(v.uploaded_at)}</span>
             {v.change_note && <span className="text-ink-muted">· {v.change_note}</span>}

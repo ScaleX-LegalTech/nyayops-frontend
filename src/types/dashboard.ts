@@ -65,6 +65,7 @@ export interface PaymentMilestone {
   amount: number | null
   percentage: number | null
   due_stage: string | null
+  due_date: string | null
   status: 'requested' | 'reminded' | 'received'
   created_by: string
   created_at: string

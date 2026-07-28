@@ -28,6 +28,7 @@ import { courtLabel, formatBytes, formatDate, formatDateTime, humanize } from '@
 import { useUsers } from '@/lib/useUsers'
 import { useCasePeople } from '@/lib/useCasePeople'
 import { usePermissions } from '@/lib/usePermissions'
+import { useAuth } from '@/auth/AuthContext'
 import { useMutationWithToast } from '@/lib/useMutationWithToast'
 import { useToast } from '@/components/ui/Toast'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -98,6 +99,8 @@ export default function CaseDetailPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
+  const { isManagingDirector, isBranchAdmin } = useAuth()
+  const isAdmin = isManagingDirector || isBranchAdmin
 
   const [editing, setEditing] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -362,7 +365,8 @@ export default function CaseDetailPage() {
                         <p className="truncate text-ink">{doc.title}</p>
                         {latest && (
                           <p className="text-xs text-ink-faint">
-                            {formatBytes(latest.file_size_bytes)} · {doc.version_count} version
+                            {isAdmin && `${formatBytes(latest.file_size_bytes)} · `}
+                            {doc.version_count} version
                             {doc.version_count === 1 ? '' : 's'} · {doc.uploaded_by_name},{' '}
                             {formatDateTime(latest.uploaded_at)}
                           </p>
@@ -373,7 +377,7 @@ export default function CaseDetailPage() {
                           <Badge tone="warning">Added later</Badge>
                         </span>
                       )}
-                      {latest && (
+                      {isAdmin && latest && (
                         <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
                           {humanize(latest.virus_scan_status)}
                         </Badge>
@@ -425,6 +429,7 @@ export default function CaseDetailPage() {
                           onRollback={(versionId) => rollback.mutate({ docId: doc.id, versionId })}
                           onPreview={setPreviewTarget}
                           onDownload={downloadDocument}
+                          isAdmin={isAdmin}
                         />
                       </div>
                     )}

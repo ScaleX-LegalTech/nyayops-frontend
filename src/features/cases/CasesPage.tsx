@@ -184,6 +184,9 @@ export default function CasesPage() {
         description="Every matter across your firm."
         actions={
           <>
+            <Button variant="secondary" onClick={() => navigate('/cnr-lookup')}>
+              <Search className="size-4" /> CNR lookup
+            </Button>
             <Button
               variant="secondary"
               onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}

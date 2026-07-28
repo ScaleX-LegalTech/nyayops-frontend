@@ -49,6 +49,7 @@ export const qk = {
   permissions: ['permissions'] as const,
   auditLogs: ['audit-logs'] as const,
   auditLogsPage: (filters: AuditLogSearchFilters = {}) => ['audit-logs', 'page', filters] as const,
+  pendingApprovals: ['assistant', 'pending-approvals'] as const,
   notifications: ['notifications'] as const,
   authConfig: ['auth', 'config'] as const,
   organization: ['organization'] as const,
@@ -63,15 +64,21 @@ export const qk = {
   // cross-case list) since it's always self-scoped regardless of granted scope.
   billQueue: ['bills', 'queue'] as const,
   billSummary: ['bills', 'summary'] as const,
+  askNyayOpsConversations: (q?: string) => ['ask-nyayops', 'conversations', 'list', q ?? ''] as const,
+  // Prefix for invalidating every list variant (all search queries) at once.
+  askNyayOpsConversationsAll: ['ask-nyayops', 'conversations'] as const,
+  askNyayOpsConversation: (id: string) => ['ask-nyayops', 'conversations', id] as const,
+  askNyayOpsArchivedConversations: ['ask-nyayops', 'conversations', 'archived'] as const,
   threadInbox: ['threads', 'inbox'] as const,
   causeList: (date?: string, scope?: 'mine' | 'all') =>
     ['cause-list', date ?? 'today', scope ?? 'all'] as const,
   cnrLookupBusinessDetail: (cnr: string, section: string, row: number) =>
     ['cnr-lookup', 'business', cnr, section, row] as const,
+  calendarEvents: (start: string, end: string) => ['calendar', 'events', start, end] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
-export const CASE_SCOPES = [['cases'], ['review'], ['dashboard'], ['bills']] as const
+export const CASE_SCOPES = [['cases'], ['review'], ['dashboard'], ['bills'], ['calendar']] as const
 
 export function invalidateCaseScopes(queryClient: QueryClient) {
   CASE_SCOPES.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))

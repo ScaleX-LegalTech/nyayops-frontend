@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Sidebar, SidebarContent } from './Sidebar'
 import { NotificationsBell } from './NotificationsBell'
 import { UserMenu } from './UserMenu'
+import { AskNyayOpsLauncher } from '@/features/ask-nyayops/AskNyayOpsLauncher'
 import { GlobalSearch, type GlobalSearchHandle } from './GlobalSearch'
 
 // How long to let the shell render before asking - a permission prompt on a blank
@@ -206,6 +207,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <AskNyayOpsLauncher />
     </div>
   )
 }
