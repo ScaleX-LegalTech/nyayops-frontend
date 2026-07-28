@@ -86,7 +86,7 @@ export function AskNyayOpsLauncher() {
   const firstName = profile?.full_name?.split(' ')[0]
 
   return (
-    <div ref={ref} style={{ zIndex: 'var(--z-popover)' }} className="fixed right-6 bottom-6">
+    <div ref={ref} style={{ zIndex: 'var(--z-popover)' }} className="fixed right-6 bottom-10">
       {open && (
         <ChatAttachDropZone className="animate-rise flex h-[min(28rem,70vh)] w-[min(92vw,24rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card border border-border bg-surface shadow-pop">
           <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
@@ -223,6 +223,7 @@ export function AskNyayOpsLauncher() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Ask NyayOps"
+          title="Ask NyayOps"
           className="animate-fab-breathe grid size-12 place-items-center rounded-full bg-brand text-white shadow-pop transition-colors hover:bg-brand-strong"
         >
           <NyayOpsMark size={28} />

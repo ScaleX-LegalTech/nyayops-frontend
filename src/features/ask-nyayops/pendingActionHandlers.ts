@@ -177,6 +177,7 @@ export const HANDLERS: Record<string, ActionHandler> = {
         amount: pa.after_state.amount as number | null | undefined,
         percentage: pa.after_state.percentage as number | null | undefined,
         due_stage: pa.after_state.due_stage as string | null | undefined,
+        due_date: pa.after_state.due_date as string | null | undefined,
       }),
   },
   'document.create': {

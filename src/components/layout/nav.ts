@@ -1,5 +1,6 @@
 import {
   Briefcase,
+  CalendarDays,
   ClipboardCheck,
   FileText,
   Gavel,
@@ -7,7 +8,6 @@ import {
   LayoutDashboard,
   MessageSquare,
   ScrollText,
-  Search,
   Sparkles,
   Users,
   type LucideIcon,
@@ -35,18 +35,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Workspace',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/calendar', label: 'Calendar', icon: CalendarDays },
       {
         to: '/cases',
         label: 'Cases',
         icon: Briefcase,
         permission: { resource: 'cases', action: 'read' },
       },
-      {
-        to: '/review',
-        label: 'Review queue',
-        icon: ClipboardCheck,
-        permission: { resource: 'cases', action: 'review' },
-      },
+      // Public court data, not case-scoped - no permission gate, everyone in the
+      // tenant sees the same thing.
+      { to: '/cause-list', label: 'Cause List', icon: Gavel },
       {
         to: '/documents',
         label: 'Documents',
@@ -55,9 +53,15 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         to: '/bills',
-        label: 'Bills',
+        label: 'Bills & Payments',
         icon: IndianRupee,
         permission: { resource: 'bills', action: 'read' },
+      },
+      {
+        to: '/review',
+        label: 'Review Queue',
+        icon: ClipboardCheck,
+        permission: { resource: 'cases', action: 'review' },
       },
       {
         to: '/ask-nyayops',
@@ -66,17 +70,13 @@ export const NAV_GROUPS: NavGroup[] = [
         permission: { resource: 'assistant', action: 'use' },
       },
       { to: '/chats', label: 'Chats', icon: MessageSquare },
-      // Public court data, not case-scoped - no permission gate, everyone in the
-      // tenant sees the same thing.
-      { to: '/cause-list', label: 'Cause list', icon: Gavel },
-      { to: '/cnr-lookup', label: 'CNR lookup', icon: Search },
     ],
   },
   {
     label: 'Administration',
     items: [
       { to: '/admin/users', label: 'Users', icon: Users, adminOnly: true },
-      { to: '/audit', label: 'Audit log', icon: ScrollText, adminOnly: true },
+      { to: '/audit', label: 'Audit Log', icon: ScrollText, adminOnly: true },
     ],
   },
 ]

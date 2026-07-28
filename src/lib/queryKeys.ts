@@ -74,10 +74,11 @@ export const qk = {
     ['cause-list', date ?? 'today', scope ?? 'all'] as const,
   cnrLookupBusinessDetail: (cnr: string, section: string, row: number) =>
     ['cnr-lookup', 'business', cnr, section, row] as const,
+  calendarEvents: (start: string, end: string) => ['calendar', 'events', start, end] as const,
 }
 
 /** Invalidate everything case-related (lists, detail, review queue, dashboard). */
-export const CASE_SCOPES = [['cases'], ['review'], ['dashboard'], ['bills']] as const
+export const CASE_SCOPES = [['cases'], ['review'], ['dashboard'], ['bills'], ['calendar']] as const
 
 export function invalidateCaseScopes(queryClient: QueryClient) {
   CASE_SCOPES.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))

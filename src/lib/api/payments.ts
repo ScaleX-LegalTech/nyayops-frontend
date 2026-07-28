@@ -6,6 +6,7 @@ export interface PaymentMilestoneCreatePayload {
   amount?: number | null
   percentage?: number | null
   due_stage?: string | null
+  due_date?: string | null
 }
 
 export function createPaymentMilestone(

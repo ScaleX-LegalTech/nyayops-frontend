@@ -48,6 +48,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', ...page(() => import('@/features/dashboard/DashboardPage')) },
+          { path: 'calendar', ...page(() => import('@/features/calendar/CalendarPage')) },
           { path: 'cases', ...page(() => import('@/features/cases/CasesPage')) },
           { path: 'cases/:caseId', ...page(() => import('@/features/cases/CaseDetailPage')) },
           {
