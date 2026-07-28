@@ -5,7 +5,8 @@ import type {
   BootstrapAskResponse,
   BootstrapMessage,
 } from '@/types'
-import { ApiError, del, get, patch, post, toQuery } from './client'
+import { API_BASE_URL, ApiError, del, get, patch, post, toQuery } from './client'
+import { getAccessToken } from './tokens'
 
 /** Maps an Ask NyayOps failure to copy a non-technical user can act on. Known,
  * user-caused conditions (rate limit, message too long, no access) get their
@@ -40,14 +41,38 @@ export function askNyayOps(
   })
 }
 
-/** Polled while a turn started with the same turnId is in flight (Improvements
- * v1 doc §3.4/§8.2 item 6) - returns whatever stage label the agent's tool-
- * calling loop last reported, or null before the first one lands (or once the
- * turn has already finished and the key's expired). Never throws on a 404-ish
- * "nothing yet" case - there isn't one, the backend always returns 200 with a
- * possibly-null stage. */
-export function getAskNyayOpsTurnStage(turnId: string): Promise<{ stage: string | null }> {
-  return get<{ stage: string | null }>(`/ask-nyayops/turn-stage/${turnId}`)
+
+/** SSE counterpart to getAskNyayOpsTurnStage - one held-open connection
+ * instead of polling every few hundred ms for however long the turn takes.
+ * onStage fires only when the stage actually changes. Returns a cleanup
+ * function; callers MUST call it once the turn resolves (success or
+ * failure) - EventSource has no concept of "the caller is done with this,"
+ * it keeps the connection open (and auto-reconnects) until explicitly
+ * closed. EventSource can't set an Authorization header, so the access
+ * token travels as a `?token=` query param (same trade-off as
+ * streamingVoiceWsUrl - see ask_nyayops_voice_ws.py's AGENTS.md note). */
+export function streamAskNyayOpsTurnStage(
+  turnId: string,
+  onStage: (stage: string | null) => void,
+): () => void {
+  const token = getAccessToken()
+  const url = `${API_BASE_URL}/ask-nyayops/turn-stage/${turnId}/stream${
+    token ? `?token=${encodeURIComponent(token)}` : ''
+  }`
+  const source = new EventSource(url)
+  source.onmessage = (event) => {
+    try {
+      const parsed = JSON.parse(event.data) as { stage: string | null }
+      onStage(parsed.stage)
+    } catch {
+      // Malformed event - not worth surfacing as a user-facing error, the
+      // stage text is a nice-to-have, not load-bearing for the turn itself.
+    }
+  }
+  // Best-effort like the old poller - a stream error just means the UI keeps
+  // whatever stage it last had, never surfaced as an error to the user.
+  source.onerror = () => {}
+  return () => source.close()
 }
 
 /** The unauthenticated Bootstrap agent (POST /ask-nyayops/bootstrap, no bearer

@@ -240,7 +240,20 @@ export function useStreamingVoice(onFinalTranscript: (text: string) => void) {
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data as string)
       if (message.type === 'data' && typeof message.data?.transcript === 'string') {
-        liveRef.current = message.data.transcript
+        const newTranscript = message.data.transcript
+        // Sarvam's transcript is a running hypothesis for its CURRENT segment
+        // only, and resets to a new (non-extending) string the moment it
+        // decides a new segment started - normally caught by the STOP_SPEECH
+        // branch below committing first, but that relies on STOP_SPEECH
+        // actually arriving before this reset. For a long utterance with many
+        // internal segments (the "at least a minute" case), that ordering
+        // isn't guaranteed every time - detecting the reset here directly (the
+        // new value no longer extends what we had) closes that race
+        // regardless of event order, instead of only handling the common case.
+        if (liveRef.current && !newTranscript.startsWith(liveRef.current)) {
+          committedRef.current = joinCommittedAndLive()
+        }
+        liveRef.current = newTranscript
         setPartialTranscript(joinCommittedAndLive())
         // More text just arrived while waiting to finalize - push the
         // deadline back out instead of cutting it off mid-word.
@@ -310,8 +323,13 @@ export function useStreamingVoice(onFinalTranscript: (text: string) => void) {
     setStatus('starting')
     let stream: MediaStream
     try {
+      // noiseSuppression:false - see useSpeech.ts's identical comment: Chrome's
+      // noise-suppression DSP can over-suppress sustained speech into a
+      // near-flat waveform Sarvam can't transcribe, more likely the longer
+      // the utterance runs (continuous streaming sessions are the most
+      // exposed case of all).
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
       })
     } catch {
       toast("Couldn't access the microphone - check your browser's permission for this site.", 'error')
