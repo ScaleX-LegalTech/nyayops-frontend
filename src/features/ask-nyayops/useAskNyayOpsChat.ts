@@ -197,23 +197,30 @@ export function useAskNyayOpsChat() {
   async function deliverMessage(entryId: string, message: string) {
     if (sendingRef.current) return
     sendingRef.current = true
-    setLoading(true)
-    setLoadingStage(null)
-
-    // Filler audio (Improvements v1 doc §3.4/§8.2 item 6) - only fires if the
-    // turn is still in flight after the delay; cleared below either way.
-    const fillerTimer = speech.enabled ? setTimeout(() => speech.playFiller(), FILLER_DELAY_MS) : null
-
-    // Stage-labelled status text (same doc item, the other half) - a held-
-    // open SSE connection instead of polling: the old fixed-interval poller
-    // sent one request every 600ms for the ENTIRE turn (hundreds of requests
-    // on a turn that hangs a minute or more, which does happen - Gemini-side
-    // rate limiting/retries). Best-effort like the old poller - a stream
-    // error just means the UI keeps whatever stage it last had.
-    const turnId = crypto.randomUUID()
-    const closeStagePoller = streamAskNyayOpsTurnStage(turnId, setLoadingStage)
-
+    // Declared here (not `const` inside the try below) so the finally block
+    // can still see and clean them up even if something between here and the
+    // network call throws synchronously - previously that left sendingRef
+    // stuck `true` forever (finally never ran), silently disabling every
+    // future send with no error, no toast, and no network request at all.
+    let fillerTimer: ReturnType<typeof setTimeout> | null = null
+    let closeStagePoller: (() => void) | null = null
     try {
+      setLoading(true)
+      setLoadingStage(null)
+
+      // Filler audio (Improvements v1 doc §3.4/§8.2 item 6) - only fires if
+      // the turn is still in flight after the delay; cleared below either way.
+      fillerTimer = speech.enabled ? setTimeout(() => speech.playFiller(), FILLER_DELAY_MS) : null
+
+      // Stage-labelled status text (same doc item, the other half) - a held-
+      // open SSE connection instead of polling: the old fixed-interval poller
+      // sent one request every 600ms for the ENTIRE turn (hundreds of requests
+      // on a turn that hangs a minute or more, which does happen - Gemini-side
+      // rate limiting/retries). Best-effort like the old poller - a stream
+      // error just means the UI keeps whatever stage it last had.
+      const turnId = crypto.randomUUID()
+      closeStagePoller = streamAskNyayOpsTurnStage(turnId, setLoadingStage)
+
       const response = await askNyayOps(message, activeConversationId ?? undefined, turnId)
       setActiveConversationId(response.conversation_id)
       setEntries((prev) => [
@@ -236,7 +243,7 @@ export function useAskNyayOpsChat() {
       setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, status: 'failed' } : e)))
     } finally {
       if (fillerTimer) clearTimeout(fillerTimer)
-      closeStagePoller()
+      if (closeStagePoller) closeStagePoller()
       sendingRef.current = false
       setLoading(false)
       setLoadingStage(null)
