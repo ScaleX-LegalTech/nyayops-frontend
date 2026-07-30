@@ -236,7 +236,13 @@ export function useAskNyayOpsChat() {
         },
       ])
       speakIfEnabled(response.reply)
-      await queryClient.invalidateQueries({ queryKey: qk.askNyayOpsConversationsAll })
+      // Refreshes the conversations sidebar - unrelated to displaying this
+      // reply (already in `entries` above) or clearing the loading spinner,
+      // so it must not be awaited: doing so was adding one more full network
+      // round trip after the actual answer arrived, before `finally` below
+      // could clear `loading`/close the stage poller - a real, unnecessary
+      // delay on top of the chat response itself.
+      void queryClient.invalidateQueries({ queryKey: qk.askNyayOpsConversationsAll })
       if (response.usage_warning) toast(response.usage_warning, 'info')
     } catch (err) {
       toast(describeAskNyayOpsError(err), 'error')
