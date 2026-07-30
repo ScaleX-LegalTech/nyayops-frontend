@@ -109,7 +109,15 @@ export function useSpeechInput(onTranscript: (text: string) => void, scope: Voic
     setStatus('starting')
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // noiseSuppression:false - Chrome's default noise-suppression DSP can
+      // over-suppress sustained/longer speech (more likely to misclassify
+      // steady speech energy as noise the longer the utterance runs),
+      // producing a near-flat waveform Sarvam can't transcribe even though
+      // the mic itself is fine. Short utterances rarely trigger this, which
+      // is why only longer sentences were affected.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { noiseSuppression: false, echoCancellation: true, autoGainControl: true },
+      })
     } catch {
       toast("Couldn't access the microphone - check your browser's permission for this site.", 'error')
       setStatus('idle')

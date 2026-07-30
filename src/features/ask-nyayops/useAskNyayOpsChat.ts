@@ -5,7 +5,7 @@ import {
   askNyayOps,
   describeAskNyayOpsError,
   getAskNyayOpsConversation,
-  getAskNyayOpsTurnStage,
+  streamAskNyayOpsTurnStage,
 } from '@/lib/api/askNyayOps'
 import { qk } from '@/lib/queryKeys'
 import type {
@@ -44,12 +44,6 @@ export interface ChatEntry {
 // short enough to mask real latency, long enough that a fast reply never overlaps it.
 const FILLER_DELAY_MS = 900
 
-// How often to poll GET /ask-nyayops/turn-stage/{turnId} while a turn is in
-// flight (Improvements v1 doc §3.4/§8.2 item 6) - frequent enough that a stage
-// change (e.g. "Checking the case file…" -> "Preparing your answer…") reads as
-// prompt, cheap enough not to matter against the several-second turn it's
-// polling during.
-const STAGE_POLL_INTERVAL_MS = 600
 
 /** Only the LAST message of a loaded conversation ever renders its
  * pending_comment/pending_action as an actionable card - earlier ones are
@@ -210,16 +204,14 @@ export function useAskNyayOpsChat() {
     // turn is still in flight after the delay; cleared below either way.
     const fillerTimer = speech.enabled ? setTimeout(() => speech.playFiller(), FILLER_DELAY_MS) : null
 
-    // Stage-labelled status text (same doc item, the other half) - polls the
-    // real in-flight stage instead of only guessing one from elapsed time.
-    // Best-effort: a poll failure just means the UI keeps whatever stage (or
-    // none) it last had, never surfaced as an error to the user.
+    // Stage-labelled status text (same doc item, the other half) - a held-
+    // open SSE connection instead of polling: the old fixed-interval poller
+    // sent one request every 600ms for the ENTIRE turn (hundreds of requests
+    // on a turn that hangs a minute or more, which does happen - Gemini-side
+    // rate limiting/retries). Best-effort like the old poller - a stream
+    // error just means the UI keeps whatever stage it last had.
     const turnId = crypto.randomUUID()
-    const stagePoller = setInterval(() => {
-      getAskNyayOpsTurnStage(turnId)
-        .then((res) => setLoadingStage(res.stage))
-        .catch(() => {})
-    }, STAGE_POLL_INTERVAL_MS)
+    const closeStagePoller = streamAskNyayOpsTurnStage(turnId, setLoadingStage)
 
     try {
       const response = await askNyayOps(message, activeConversationId ?? undefined, turnId)
@@ -244,7 +236,7 @@ export function useAskNyayOpsChat() {
       setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, status: 'failed' } : e)))
     } finally {
       if (fillerTimer) clearTimeout(fillerTimer)
-      clearInterval(stagePoller)
+      closeStagePoller()
       sendingRef.current = false
       setLoading(false)
       setLoadingStage(null)
