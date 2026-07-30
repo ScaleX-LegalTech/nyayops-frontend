@@ -62,12 +62,18 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   _retried?: boolean
 }
 
-let refreshInFlight: Promise<boolean> | null = null
+type RefreshOutcome = 'success' | 'invalidToken' | 'transientError'
 
-/** Attempt a single token refresh, deduplicated across concurrent 401s. */
-async function refreshTokens(): Promise<boolean> {
+let refreshInFlight: Promise<RefreshOutcome> | null = null
+
+/** Attempt a single token refresh, deduplicated across concurrent 401s. Only
+ * a 401 from the refresh endpoint itself means the refresh token is actually
+ * dead - anything else (network error, timeout, 5xx) is transient and
+ * shouldn't cost the user their session (see the Flutter app's api_client.dart
+ * for the same fix, made first). */
+async function refreshTokens(): Promise<RefreshOutcome> {
   const refresh = getRefreshToken()
-  if (!refresh) return false
+  if (!refresh) return 'invalidToken'
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
@@ -76,12 +82,12 @@ async function refreshTokens(): Promise<boolean> {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: refresh }),
         })
-        if (!res.ok) return false
+        if (!res.ok) return res.status === 401 ? 'invalidToken' : 'transientError'
         const data = await res.json()
         setTokens(data.access_token, data.refresh_token)
-        return true
+        return 'success'
       } catch {
-        return false
+        return 'transientError'
       } finally {
         refreshInFlight = null
       }
@@ -111,12 +117,19 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   })
 
   if (response.status === 401 && !_retried && getRefreshToken()) {
-    const refreshed = await refreshTokens()
-    if (refreshed) {
+    const outcome = await refreshTokens()
+    if (outcome === 'success') {
       return apiFetch<T>(path, { ...options, _retried: true })
     }
-    emitLogout()
-    throw new ApiError(401, 'Your session has expired. Please sign in again.')
+    if (outcome === 'invalidToken') {
+      emitLogout()
+      throw new ApiError(401, 'Your session has expired. Please sign in again.')
+    }
+    // Transient failure (network/5xx) refreshing - the stored refresh token
+    // may still be good, so don't wipe it and force a logout over what could
+    // just be a dropped connection. Fail this one request; the next one gets
+    // to try refreshing again.
+    throw new ApiError(0, 'Could not reach the server. Please try again.')
   }
 
   if (!response.ok) {
