@@ -37,7 +37,7 @@ export default function SettingsPage() {
         description="Manage your profile, security, and organization configuration."
       />
 
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
+      <div className="scrollbar-thin mb-6 flex gap-1 overflow-x-auto border-b border-border">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}

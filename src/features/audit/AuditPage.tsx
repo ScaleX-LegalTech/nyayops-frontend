@@ -37,6 +37,8 @@ export default function AuditPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const tableWrapRef = useRef<HTMLDivElement | null>(null)
+  const tableSentinelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 350)
@@ -67,18 +69,30 @@ export default function AuditPage() {
   })
 
   useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage()
-        }
-      },
-      { rootMargin: '400px' },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
+    function onIntersect(entries: IntersectionObserverEntry[]) {
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
+      }
+    }
+    // Two observers: page-level for the mobile card list, table-scoped for the
+    // desktop table - TableWrap scrolls internally (max-h-[70vh] overflow-auto),
+    // so a viewport-rooted sentinel would sit permanently "in view" below the
+    // short box and fire every page back-to-back instead of one at a time.
+    const observers: IntersectionObserver[] = []
+    if (sentinelRef.current) {
+      const observer = new IntersectionObserver(onIntersect, { rootMargin: '400px' })
+      observer.observe(sentinelRef.current)
+      observers.push(observer)
+    }
+    if (tableSentinelRef.current && tableWrapRef.current) {
+      const observer = new IntersectionObserver(onIntersect, {
+        root: tableWrapRef.current,
+        rootMargin: '200px',
+      })
+      observer.observe(tableSentinelRef.current)
+      observers.push(observer)
+    }
+    return () => observers.forEach((o) => o.disconnect())
   }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   const logs = data?.pages.flatMap((page) => page.items) ?? []
@@ -133,7 +147,7 @@ export default function AuditPage() {
         </TableWrap>
       ) : (
         <>
-        <TableWrap>
+        <TableWrap ref={tableWrapRef} className="hidden lg:block">
           <Table>
             <THead>
               <Tr>
@@ -202,8 +216,65 @@ export default function AuditPage() {
               })}
             </TBody>
           </Table>
+          <div ref={tableSentinelRef} className="flex justify-center py-2">
+            {isFetchingNextPage && <Spinner />}
+          </div>
         </TableWrap>
-        <div ref={sentinelRef} className="flex justify-center py-4">
+
+        <div className="divide-y divide-border rounded-card border border-border bg-surface lg:hidden">
+          {logs.map((log) => {
+            const isOpen = expanded === log.id
+            const hasState = log.previous_state || log.new_state
+            return (
+              <div key={log.id}>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  {hasState ? (
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : log.id)}
+                      className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink"
+                      aria-label="Toggle state"
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="size-4" />
+                      ) : (
+                        <ChevronRight className="size-4" />
+                      )}
+                    </button>
+                  ) : (
+                    <span className="size-7 shrink-0" aria-hidden />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Badge tone="brand">{humanize(log.action_type)}</Badge>
+                      <span className="text-sm font-medium text-ink">{log.actor_name}</span>
+                      {log.actor_access ? (
+                        <Badge tone="neutral">{log.actor_access}</Badge>
+                      ) : (
+                        <span className="text-xs text-ink-faint">Member</span>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-xs text-ink-muted">
+                      {log.resource_label ?? humanize(log.resource_type)}
+                    </p>
+                    {log.comment && (
+                      <p className="mt-1 truncate text-xs text-ink-muted">{log.comment}</p>
+                    )}
+                  </div>
+                  <p className="shrink-0 whitespace-nowrap text-xs tabular text-ink-muted">
+                    {formatDateTime(log.occurred_at)}
+                  </p>
+                </div>
+                {isOpen && hasState && (
+                  <div className="border-t border-border bg-surface-muted/50 px-4 py-3">
+                    <StateChanges previous={log.previous_state} next={log.new_state} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div ref={sentinelRef} className="flex justify-center py-4 lg:hidden">
           {isFetchingNextPage && <Spinner />}
         </div>
         </>

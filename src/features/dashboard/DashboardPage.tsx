@@ -281,6 +281,8 @@ function IssueListCard({ issues, isLoading }: { issues: Issue[]; isLoading?: boo
   )
 }
 
+const ACTIVITY_INITIAL_ROWS = 5
+
 function ActivityFeedCard({
   activity,
   isLoading,
@@ -289,6 +291,8 @@ function ActivityFeedCard({
   isLoading?: boolean
 }) {
   const { nameOf } = useUsers()
+  const [expanded, setExpanded] = useState(false)
+  const visibleActivity = expanded ? activity : activity.slice(0, ACTIVITY_INITIAL_ROWS)
   return (
     <Card>
       <CardHeader
@@ -306,7 +310,7 @@ function ActivityFeedCard({
           />
         ) : (
           <div className="divide-y divide-border">
-            {activity.map((item) => (
+            {visibleActivity.map((item) => (
               <Link
                 key={item.id}
                 to={`/cases/${item.case_id}`}
@@ -324,6 +328,15 @@ function ActivityFeedCard({
               </Link>
             ))}
           </div>
+        )}
+        {activity.length > ACTIVITY_INITIAL_ROWS && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full border-t border-border px-5 py-2.5 text-center text-sm font-medium text-brand hover:bg-surface-muted"
+          >
+            {expanded ? 'Show less' : `Show all ${activity.length}`}
+          </button>
         )}
       </CardBody>
     </Card>
@@ -348,7 +361,7 @@ function MyWorkView() {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <CaseListCard
           title="My cases"
           description="Cases you created or are assigned to"
@@ -359,7 +372,7 @@ function MyWorkView() {
         />
         <IssueListCard issues={data?.open_issues ?? []} isLoading={isLoading} />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Next hearing dates"
           description="Your upcoming hearings, soonest first"
@@ -370,14 +383,14 @@ function MyWorkView() {
         />
         <CauseListCard />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <BillQueueCard />
         <ActivityFeedCard
           activity={recentActivity.data ?? []}
           isLoading={recentActivity.isLoading}
         />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Overdue flags"
           description="Past their hearing date and not yet closed"
@@ -530,7 +543,7 @@ function OverviewView() {
         />
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title="Case snapshot" description="Distribution across the workflow" />
           <CardBody className="border-t border-border">
@@ -610,7 +623,7 @@ function OverviewView() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.6fr]">
+      <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[1fr_1.6fr]">
         <Card>
           <CardHeader title="Activity today" />
           <CardBody className="grid grid-cols-3 gap-3 border-t border-border text-center">
@@ -658,7 +671,7 @@ function OverviewView() {
         />
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-2">
         <CaseListCard
           title="Scrutiny action required"
           description="Rejected scrutiny - needs a corrected document and re-approval"
@@ -677,7 +690,7 @@ function OverviewView() {
         />
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-2">
         <StatusDonutCard
           title="Open issues"
           description="Document Missing / Info Needed / Blocker flags raised across all cases"

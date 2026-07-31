@@ -8,6 +8,7 @@ import {
   Ban,
   Building2,
   KeyRound,
+  ListFilter,
   Lock,
   MoreVertical,
   Pencil,
@@ -86,8 +87,11 @@ export default function UsersPage() {
   const [suspending, setSuspending] = useState<User | null>(null)
   const [freezing, setFreezing] = useState<User | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const tableWrapRef = useRef<HTMLDivElement | null>(null)
+  const tableSentinelRef = useRef<HTMLDivElement | null>(null)
 
   const [tab, setTab] = useUrlState('tab', 'active')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [q, setQ] = useUrlState('q')
   const [debouncedQ, setDebouncedQ] = useState(q)
   const [branchId, setBranchId] = useUrlState('branch_id')
@@ -165,18 +169,31 @@ export default function UsersPage() {
     : [...BASE_SORT_COLUMNS, BRANCH_SORT_COLUMN, JOINED_SORT_COLUMN]
 
   useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage()
-        }
-      },
-      { rootMargin: '400px' },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
+    function onIntersect(entries: IntersectionObserverEntry[]) {
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
+      }
+    }
+    // Two observers: the page-level one drives the mobile card list (which
+    // scrolls with the page), the table-scoped one drives the desktop table -
+    // TableWrap scrolls internally (max-h-[70vh] overflow-auto), so a sentinel
+    // watched against the viewport would sit permanently "in view" below the
+    // short box and fire every page back-to-back instead of one at a time.
+    const observers: IntersectionObserver[] = []
+    if (sentinelRef.current) {
+      const observer = new IntersectionObserver(onIntersect, { rootMargin: '400px' })
+      observer.observe(sentinelRef.current)
+      observers.push(observer)
+    }
+    if (tableSentinelRef.current && tableWrapRef.current) {
+      const observer = new IntersectionObserver(onIntersect, {
+        root: tableWrapRef.current,
+        rootMargin: '200px',
+      })
+      observer.observe(tableSentinelRef.current)
+      observers.push(observer)
+    }
+    return () => observers.forEach((o) => o.disconnect())
   }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   return (
@@ -227,78 +244,96 @@ export default function UsersPage() {
         </p>
       )}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-64 flex-1">
-          <Field label="Search">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Name, email, branch, role or access..."
-                className="pl-9"
-              />
-            </div>
-          </Field>
-        </div>
-        {isManagingDirector && (
-          <Field label="Branch" className="w-44">
-            <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-              <option value="">All branches</option>
-              {(branchesQuery.data ?? []).map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-        <Field label="Role" className="w-44">
-          <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-            <option value="">All roles</option>
-            {(rolesQuery.data ?? []).map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {!isPastMembers && (
-          <Field label="Status" className="w-44">
-            <Select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as UserStatusFilter | '')}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-        <Field label="Joined from">
-          <DatePicker value={joinedFrom} onChange={setJoinedFrom} />
-        </Field>
-        <Field label="Joined to">
-          <DatePicker value={joinedTo} onChange={setJoinedTo} />
-        </Field>
-        {hasFilters && (
+      <div className="mb-4 space-y-3">
+        <div className="flex items-end gap-3">
+          <div className="min-w-0 flex-1 lg:min-w-64 lg:flex-initial">
+            <Field label="Search">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Name, email, branch, role or access..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+          </div>
           <Button
-            variant="ghost"
-            onClick={() => {
-              setQ('')
-              setDebouncedQ('')
-              setBranchId('')
-              setRoleId('')
-              setStatus('')
-              setJoinedFrom('')
-              setJoinedTo('')
-            }}
+            variant="secondary"
+            className="shrink-0 lg:hidden"
+            onClick={() => setFiltersOpen((v) => !v)}
           >
-            Clear filters
+            <ListFilter className="size-4" /> Filters
+            {hasFilters && <span className="size-1.5 rounded-full bg-brand" aria-hidden />}
           </Button>
-        )}
+        </div>
+
+        <div
+          className={cn(
+            'flex-wrap items-end gap-3 lg:flex',
+            filtersOpen ? 'flex' : 'hidden',
+          )}
+        >
+          {isManagingDirector && (
+            <Field label="Branch" className="w-44">
+              <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                <option value="">All branches</option>
+                {(branchesQuery.data ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Role" className="w-44">
+            <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+              <option value="">All roles</option>
+              {(rolesQuery.data ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {!isPastMembers && (
+            <Field label="Status" className="w-44">
+              <Select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as UserStatusFilter | '')}
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Joined from">
+            <DatePicker value={joinedFrom} onChange={setJoinedFrom} />
+          </Field>
+          <Field label="Joined to">
+            <DatePicker value={joinedTo} onChange={setJoinedTo} />
+          </Field>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setQ('')
+                setDebouncedQ('')
+                setBranchId('')
+                setRoleId('')
+                setStatus('')
+                setJoinedFrom('')
+                setJoinedTo('')
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -314,7 +349,7 @@ export default function UsersPage() {
         </TableWrap>
       ) : (
         <>
-        <TableWrap>
+        <TableWrap ref={tableWrapRef} className="hidden lg:block">
           <Table>
             <THead>
               <Tr>
@@ -434,8 +469,101 @@ export default function UsersPage() {
               ))}
             </TBody>
           </Table>
+          <div ref={tableSentinelRef} className="flex justify-center py-2">
+            {isFetchingNextPage && <Spinner />}
+          </div>
         </TableWrap>
-        <div ref={sentinelRef} className="flex justify-center py-4">
+
+        <div className="divide-y divide-border rounded-card border border-border bg-surface lg:hidden">
+          {users.map((u) => (
+            <div key={u.id} className="flex flex-col gap-3 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <PersonAvatar label={u.full_name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-ink">{displayName(u)}</p>
+                    <p className="truncate text-xs text-ink-muted">
+                      {u.email.endsWith('@deleted.nyayops.internal') ? (
+                        <span className="text-ink-faint">Email freed for reuse</span>
+                      ) : (
+                        u.email
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {!isPastMembers && (
+                  <RowActionsMenu
+                    isSelf={u.id === currentUserId}
+                    isAdminRow={u.is_org_admin || u.is_branch_admin}
+                    canManageAccess={
+                      isManagingDirector ||
+                      (isBranchAdmin && !(u.is_org_admin || u.is_branch_admin))
+                    }
+                    status={u.status}
+                    isRestricted={u.is_restricted}
+                    onManageRoles={() => setManagingRoles(u)}
+                    onResetPassword={() => setResettingPassword(u)}
+                    onEdit={() => setEditing(u)}
+                    onSuspend={() => setSuspending(u)}
+                    onFreeze={() => setFreezing(u)}
+                    onDelete={() => setDeleting(u)}
+                  />
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1">
+                {u.is_org_admin ? (
+                  <Badge tone="brand">
+                    <ShieldCheck className="size-3.5" /> Managing Director
+                  </Badge>
+                ) : u.is_branch_admin ? (
+                  <Badge tone="brand">
+                    <Building2 className="size-3.5" /> Branch Admin
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-ink-faint">Member</span>
+                )}
+                {u.status === 'pending' && <Badge tone="neutral">Pending</Badge>}
+                {u.status === 'suspended' && (
+                  <Badge tone="danger">
+                    <Ban className="size-3.5" /> Suspended
+                  </Badge>
+                )}
+                {u.is_restricted && (
+                  <Badge tone="warning">
+                    <Lock className="size-3.5" /> Read-only
+                  </Badge>
+                )}
+                {u.role_ids.map((id) => (
+                  <Badge key={id} tone="neutral">
+                    {roleName(id)}
+                  </Badge>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border pt-2.5">
+                {!isBranchAdmin && (
+                  <div className="min-w-0">
+                    <p className="type-label text-[10px] text-ink-faint">Branch</p>
+                    <p className="mt-0.5 truncate text-xs text-ink-muted">{branchName(u.branch_id)}</p>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="type-label text-[10px] text-ink-faint">
+                    {isPastMembers ? 'Left on' : 'Joined'}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-ink-muted">
+                    {isPastMembers && u.deleted_at
+                      ? new Date(u.deleted_at).toLocaleDateString()
+                      : new Date(u.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div ref={sentinelRef} className="flex justify-center py-4 lg:hidden">
           {isFetchingNextPage && <Spinner />}
         </div>
         </>

@@ -442,8 +442,8 @@ export default function CaseDetailPage() {
         </CardBody>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-5">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.5fr_1fr]">
+        <div className="min-w-0 space-y-5">
           <Card>
             <CardHeader title="Details" />
             <CardBody className="border-t border-border">

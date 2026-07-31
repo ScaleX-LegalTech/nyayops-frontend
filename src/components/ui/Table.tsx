@@ -1,14 +1,20 @@
-import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react'
+import { forwardRef, type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
-export function TableWrap({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('w-full overflow-x-auto rounded-card border border-border bg-surface', className)}
-      {...props}
-    />
-  )
-}
+export const TableWrap = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  function TableWrap({ className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          'w-full max-h-[70vh] overflow-auto rounded-card border border-border bg-surface',
+          className,
+        )}
+        {...props}
+      />
+    )
+  },
+)
 
 export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
   return <table className={cn('w-full border-collapse text-sm', className)} {...props} />

@@ -113,7 +113,8 @@ export default function ReviewPage() {
           />
         </TableWrap>
       ) : (
-        <TableWrap>
+        <>
+        <TableWrap className="hidden lg:block">
           <Table>
             <THead>
               <Tr>
@@ -199,6 +200,84 @@ export default function ReviewPage() {
             </TBody>
           </Table>
         </TableWrap>
+
+        <div className="divide-y divide-border rounded-card border border-border bg-surface lg:hidden">
+          {cases.map((c) => (
+            <div key={c.id} className="flex flex-col gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <Link
+                  to={`/cases/${c.id}`}
+                  className="block truncate text-sm font-semibold text-ink hover:underline"
+                >
+                  {c.title}
+                </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <StatusBadge status={c.status} />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                  <span className="truncate">{c.client_name}</span>
+                  <span className="tabular">Hearing {formatDate(c.hearing_date)}</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 justify-end gap-1">
+                {c.status === 'ready_for_review' ? (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Start review"
+                    aria-label="Start review"
+                    loading={startReview.isPending}
+                    onClick={() => startReview.mutate(c.id)}
+                  >
+                    <PlayCircle className="size-4 text-brand" />
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title={ACTION_META.approve.title}
+                      aria-label={ACTION_META.approve.title}
+                      onClick={() => setActive({ case: c, action: 'approve' })}
+                    >
+                      <CheckCircle2 className="size-4 text-success" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title={ACTION_META.reject.title}
+                      aria-label={ACTION_META.reject.title}
+                      onClick={() => setActive({ case: c, action: 'reject' })}
+                    >
+                      <XCircle className="size-4 text-danger" />
+                    </Button>
+                  </>
+                )}
+                {hasPermission('cases', 'assign') && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title={ACTION_META.reassign.title}
+                    aria-label={ACTION_META.reassign.title}
+                    onClick={() => setActive({ case: c, action: 'reassign' })}
+                  >
+                    <UserCog className="size-4 text-ink-muted" />
+                  </Button>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title={ACTION_META.comment.title}
+                  aria-label={ACTION_META.comment.title}
+                  onClick={() => setActive({ case: c, action: 'comment' })}
+                >
+                  <MessageSquare className="size-4 text-ink-muted" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       <Dialog

@@ -138,7 +138,7 @@ export const GlobalSearch = forwardRef<GlobalSearchHandle>(function GlobalSearch
   }
 
   return (
-    <div ref={triggerRef} className="relative w-72 shrink-0 lg:w-96">
+    <div ref={triggerRef} className="relative min-w-0 flex-1 sm:w-72 sm:flex-none lg:w-96">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
       <input
         ref={inputRef}

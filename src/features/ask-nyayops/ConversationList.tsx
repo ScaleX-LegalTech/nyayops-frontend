@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
@@ -116,9 +117,15 @@ export function ConversationList({
   variant = 'sidebar',
 }: ConversationListProps) {
   const queryClient = useQueryClient()
-  const [collapsed, setCollapsed] = useState(
-    () => variant === 'sidebar' && localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1',
-  )
+  const [collapsed, setCollapsed] = useState(() => {
+    if (variant !== 'sidebar') return false
+    // Always start collapsed to the icon rail on phones/tablets, ignoring any
+    // "expanded" preference saved from a desktop session - a stale desktop-set
+    // localStorage value must never be honored here, or the sidebar opens
+    // full-width on load and squeezes the chat pane into a sliver.
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return true
+    return localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1'
+  })
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery] = useState('')
   const [moduleFilter, setModuleFilter] = useState<ModuleFilterValue>('all')
@@ -129,6 +136,20 @@ export function ConversationList({
   const [viewingArchived, setViewingArchived] = useState(false)
   const [purging, setPurging] = useState<{ id: string; title: string } | null>(null)
   const [previewingId, setPreviewingId] = useState<string | null>(null)
+  // Tracked live (not just at mount) so an already-open tab that gets resized, or a
+  // stale "expanded" localStorage preference carried over from a desktop session,
+  // still gets the mobile-overlay treatment below instead of squeezing the chat
+  // pane into a sliver.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 1024,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(searchInput.trim()), SEARCH_DEBOUNCE_MS)
@@ -219,32 +240,30 @@ export function ConversationList({
     if (e.key === 'Escape') setRenamingId(null)
   }
 
-  if (collapsed) {
-    return (
-      <div className="flex h-full w-12 shrink-0 flex-col items-center gap-2 border-r border-border py-3">
-        <button
-          type="button"
-          aria-label="Expand request list"
-          title="Expand request list"
-          onClick={toggleCollapsed}
-          className="grid size-9 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink"
-        >
-          <PanelLeftOpen className="size-4.5" />
-        </button>
-        <button
-          type="button"
-          aria-label="New request"
-          title="New request"
-          onClick={onNew}
-          className="grid size-9 place-items-center rounded-control text-brand hover:bg-brand-soft"
-        >
-          <MessageSquarePlus className="size-4.5" />
-        </button>
-      </div>
-    )
-  }
+  const rail = (
+    <div className="flex h-full w-12 shrink-0 flex-col items-center gap-2 border-r border-border py-3">
+      <button
+        type="button"
+        aria-label="Expand request list"
+        title="Expand request list"
+        onClick={toggleCollapsed}
+        className="grid size-9 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink"
+      >
+        <PanelLeftOpen className="size-4.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="New request"
+        title="New request"
+        onClick={onNew}
+        className="grid size-9 place-items-center rounded-control text-brand hover:bg-brand-soft"
+      >
+        <MessageSquarePlus className="size-4.5" />
+      </button>
+    </div>
+  )
 
-  return (
+  const body = (
     <div
       className={cn(
         'flex h-full flex-col',
@@ -325,7 +344,11 @@ export function ConversationList({
           </p>
         )}
       </div>
+    </div>
+  )
 
+  const dialogs = (
+    <>
       <Dialog
         open={viewingArchived}
         onClose={() => setViewingArchived(false)}
@@ -413,7 +436,39 @@ export function ConversationList({
           }
         />
       )}
-    </div>
+    </>
+  )
+
+  // On phones/tablets the sidebar never pushes the chat pane - it's always the
+  // 48px rail inline, with the full list (search/filters/rows) opening as a
+  // fixed overlay on top instead. A stale "expanded" preference from a desktop
+  // session, or a live resize, would otherwise squeeze the chat into a sliver.
+  if (variant === 'sidebar' && isMobile) {
+    return (
+      <>
+        {rail}
+        {!collapsed &&
+          createPortal(
+            <div className="lg:hidden" style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-drawer)' }}>
+              <div className="absolute inset-0 bg-black/40" onClick={toggleCollapsed} aria-hidden />
+              <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] animate-rise bg-surface shadow-pop">
+                {body}
+              </div>
+            </div>,
+            document.body,
+          )}
+        {dialogs}
+      </>
+    )
+  }
+
+  if (collapsed) return rail
+
+  return (
+    <>
+      {body}
+      {dialogs}
+    </>
   )
 
   function renderRow(c: AskNyayOpsConversationSummary) {

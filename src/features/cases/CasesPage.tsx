@@ -64,6 +64,10 @@ function sortCases(cases: CaseDashboardCard[], sortBy: SortBy): CaseDashboardCar
   }
 }
 
+function truncateChars(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max)}…` : value
+}
+
 const LONG_PRESS_MS = 500
 const PAGE_SIZE = 30
 
@@ -282,19 +286,17 @@ export default function CasesPage() {
         </TableWrap>
       ) : (
         <div>
-          <div className="flex items-center gap-3 px-1 pb-2.5">
-            {selectionMode && (
+          {selectionMode && (
+            <div className="flex items-center gap-3 px-1 pb-2.5">
               <input
                 type="checkbox"
                 aria-label="Select all"
                 checked={allSelected}
                 onChange={(e) => setSelected(e.target.checked ? cases.map((c) => c.id) : [])}
               />
-            )}
-            <span className="type-label text-ink-faint">
-              {cases.length} case{cases.length === 1 ? '' : 's'}
-            </span>
-          </div>
+              <span className="type-label text-ink-faint">{selected.length} selected</span>
+            </div>
+          )}
           <div className="space-y-2.5">
             {sortedCases.map((c) => {
               const [firstAssigneeName, ...restAssignees] = c.assignee_names
@@ -321,7 +323,7 @@ export default function CasesPage() {
                       onChange={() => toggle(c.id)}
                     />
                   ) : (
-                    <span className="grid size-11 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">
+                    <span className="hidden size-11 shrink-0 place-items-center rounded-control bg-brand-soft text-brand sm:grid">
                       <Scale className="size-5" aria-hidden />
                     </span>
                   )}
@@ -347,16 +349,13 @@ export default function CasesPage() {
                         <>
                           <span className="text-ink-faint">·</span>
                           <FlowDirectionBadge direction={c.billing_stage} />
-                          {c.billing_type && (
-                            <span className="text-ink-faint">{c.billing_type}</span>
-                          )}
                         </>
                       )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
                       <span className="inline-flex items-center gap-1">
                         <User className="size-3.5 shrink-0 text-ink-faint" aria-hidden />
-                        {c.client_name}
+                        {truncateChars(c.client_name, 35)}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Landmark className="size-3.5 shrink-0 text-ink-faint" aria-hidden />

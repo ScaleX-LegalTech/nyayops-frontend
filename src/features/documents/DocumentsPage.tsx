@@ -131,154 +131,8 @@ export default function DocumentsPage() {
         />
       </div>
 
-      {isLoading ? (
-        <LoadingState />
-      ) : isError ? (
-        <ErrorState error={error} onRetry={refetch} />
-      ) : docs.length === 0 ? (
-        <TableWrap>
-          <EmptyState
-            icon={FileText}
-            title="No documents"
-            description="Upload the first file for a case."
-            action={
-              <Button onClick={() => setUploadNew(true)}>
-                <Plus className="size-4" /> Upload
-              </Button>
-            }
-          />
-        </TableWrap>
-      ) : (
-        <TableWrap>
-          <Table>
-            <THead>
-              <Tr>
-                <Th className="w-8" />
-                <Th>Title</Th>
-                <Th>Type</Th>
-                <Th>Case</Th>
-                <Th>Versions</Th>
-                {isAdmin && <Th>Latest scan</Th>}
-                <Th className="text-right">Actions</Th>
-              </Tr>
-            </THead>
-            <TBody>
-              {docs.map((doc) => {
-                const latest = doc.latest_version
-                const isOpen = expanded === doc.id
-                return (
-                  <Fragment key={doc.id}>
-                    <Tr className="hover:bg-surface-muted">
-                      <Td>
-                        <button
-                          onClick={() => setExpanded(isOpen ? null : doc.id)}
-                          className="grid size-11 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                          aria-label="Toggle versions"
-                        >
-                          {isOpen ? (
-                            <ChevronDown className="size-4" />
-                          ) : (
-                            <ChevronRight className="size-4" />
-                          )}
-                        </button>
-                      </Td>
-                      <Td className="font-medium text-ink">
-                        {doc.title}
-                        {isAdmin && doc.is_quarantined && (
-                          <Badge tone="danger" className="ml-2">
-                            Quarantined
-                          </Badge>
-                        )}
-                      </Td>
-                      <Td className="text-ink-muted">{humanize(doc.doc_type)}</Td>
-                      <Td className="text-ink-muted">{doc.case_title}</Td>
-                      <Td className="tabular text-ink-muted">{doc.version_count}</Td>
-                      {isAdmin && (
-                        <Td>
-                          {latest && (
-                            <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
-                              {humanize(latest.virus_scan_status)}
-                            </Badge>
-                          )}
-                        </Td>
-                      )}
-                      <Td>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={`Add version to ${doc.title}`}
-                            onClick={() => setVersionFor({ id: doc.id, caseId: doc.case_id })}
-                          >
-                            <FilePlus2 className="size-4" />
-                          </Button>
-                          {latest && (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label={`View ${doc.title}`}
-                                onClick={() =>
-                                  setPreviewTarget({
-                                    load: () => loadDocumentBlob(latest.storage_key),
-                                    mimeType: latest.mime_type,
-                                    title: doc.title,
-                                  })
-                                }
-                              >
-                                <Eye className="size-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label={`Download ${doc.title}`}
-                                onClick={() => handleDownload(latest.storage_key)}
-                              >
-                                <Download className="size-4" />
-                              </Button>
-                            </>
-                          )}
-                          {isAdmin && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              aria-label={`Delete ${doc.title}`}
-                              onClick={() => setDeleteTarget({ id: doc.id, title: doc.title })}
-                            >
-                              <Trash2 className="size-4 text-danger" />
-                            </Button>
-                          )}
-                        </div>
-                      </Td>
-                    </Tr>
-                    {isOpen && (
-                      <Tr className="bg-surface-muted/50">
-                        <Td colSpan={7} className="px-4 py-3">
-                          <VersionHistory
-                            documentId={doc.id}
-                            docTitle={doc.title}
-                            isOpen={isOpen}
-                            rollbackPending={rollback.isPending}
-                            onRollback={(versionId) =>
-                              rollback.mutate({ docId: doc.id, versionId })
-                            }
-                            onPreview={setPreviewTarget}
-                            onDownload={handleDownload}
-                            isAdmin={isAdmin}
-                          />
-                        </Td>
-                      </Tr>
-                    )}
-                  </Fragment>
-                )
-              })}
-            </TBody>
-          </Table>
-        </TableWrap>
-      )}
-
       {isAdmin && hiddenDocs.length > 0 && (
-        <div className="mt-6">
+        <div className="mb-4">
           <button
             type="button"
             onClick={() => setShowHiddenSection((v) => !v)}
@@ -350,6 +204,265 @@ export default function DocumentsPage() {
             </ul>
           )}
         </div>
+      )}
+
+      {isLoading ? (
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState error={error} onRetry={refetch} />
+      ) : docs.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No documents"
+          description="Upload the first file for a case."
+          action={
+            <Button onClick={() => setUploadNew(true)}>
+              <Plus className="size-4" /> Upload
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <TableWrap className="hidden lg:block">
+            <Table>
+              <THead>
+                <Tr>
+                  <Th className="w-8" />
+                  <Th>Title</Th>
+                  <Th>Type</Th>
+                  <Th>Case</Th>
+                  <Th>Versions</Th>
+                  {isAdmin && <Th>Latest scan</Th>}
+                  <Th className="text-right">Actions</Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {docs.map((doc) => {
+                  const latest = doc.latest_version
+                  const isOpen = expanded === doc.id
+                  return (
+                    <Fragment key={doc.id}>
+                      <Tr className="hover:bg-surface-muted">
+                        <Td>
+                          <button
+                            onClick={() => setExpanded(isOpen ? null : doc.id)}
+                            className="grid size-11 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                            aria-label="Toggle versions"
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )}
+                          </button>
+                        </Td>
+                        <Td className="font-medium text-ink">
+                          {doc.title}
+                          {isAdmin && doc.is_quarantined && (
+                            <Badge tone="danger" className="ml-2">
+                              Quarantined
+                            </Badge>
+                          )}
+                        </Td>
+                        <Td className="text-ink-muted">{humanize(doc.doc_type)}</Td>
+                        <Td className="text-ink-muted">{doc.case_title}</Td>
+                        <Td className="tabular text-ink-muted">{doc.version_count}</Td>
+                        {isAdmin && (
+                          <Td>
+                            {latest && latest.virus_scan_status !== 'skipped' && (
+                              <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
+                                {humanize(latest.virus_scan_status)}
+                              </Badge>
+                            )}
+                          </Td>
+                        )}
+                        <Td>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Add version to ${doc.title}`}
+                              onClick={() => setVersionFor({ id: doc.id, caseId: doc.case_id })}
+                            >
+                              <FilePlus2 className="size-4" />
+                            </Button>
+                            {latest && (
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label={`View ${doc.title}`}
+                                  onClick={() =>
+                                    setPreviewTarget({
+                                      load: () => loadDocumentBlob(latest.storage_key),
+                                      mimeType: latest.mime_type,
+                                      title: doc.title,
+                                    })
+                                  }
+                                >
+                                  <Eye className="size-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label={`Download ${doc.title}`}
+                                  onClick={() => handleDownload(latest.storage_key)}
+                                >
+                                  <Download className="size-4" />
+                                </Button>
+                              </>
+                            )}
+                            {isAdmin && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`Delete ${doc.title}`}
+                                onClick={() => setDeleteTarget({ id: doc.id, title: doc.title })}
+                              >
+                                <Trash2 className="size-4 text-danger" />
+                              </Button>
+                            )}
+                          </div>
+                        </Td>
+                      </Tr>
+                      {isOpen && (
+                        <Tr className="bg-surface-muted/50">
+                          <Td colSpan={7} className="px-4 py-3">
+                            <VersionHistory
+                              documentId={doc.id}
+                              docTitle={doc.title}
+                              isOpen={isOpen}
+                              rollbackPending={rollback.isPending}
+                              onRollback={(versionId) =>
+                                rollback.mutate({ docId: doc.id, versionId })
+                              }
+                              onPreview={setPreviewTarget}
+                              onDownload={handleDownload}
+                              isAdmin={isAdmin}
+                            />
+                          </Td>
+                        </Tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </TBody>
+            </Table>
+          </TableWrap>
+
+          <div className="divide-y divide-border rounded-card border border-border bg-surface lg:hidden">
+            {docs.map((doc) => {
+              const latest = doc.latest_version
+              const isOpen = expanded === doc.id
+              const showScan = isAdmin && latest && latest.virus_scan_status !== 'skipped'
+              return (
+                <div key={doc.id}>
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : doc.id)}
+                      className="grid size-9 shrink-0 place-items-center rounded-control text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      aria-label="Toggle versions"
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="size-4" />
+                      ) : (
+                        <ChevronRight className="size-4" />
+                      )}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {doc.title}
+                        {isAdmin && doc.is_quarantined && (
+                          <Badge tone="danger" className="ml-2">
+                            Quarantined
+                          </Badge>
+                        )}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                        <span>
+                          <span className="text-ink-faint">Type </span>
+                          {humanize(doc.doc_type)}
+                        </span>
+                        <span className="truncate">
+                          <span className="text-ink-faint">Case </span>
+                          {doc.case_title}
+                        </span>
+                        <span className="tabular">
+                          {doc.version_count} version{doc.version_count === 1 ? '' : 's'}
+                        </span>
+                        {showScan && (
+                          <Badge tone={SCAN_TONE[latest.virus_scan_status] ?? 'neutral'}>
+                            Scan: {humanize(latest.virus_scan_status)}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Add version to ${doc.title}`}
+                        onClick={() => setVersionFor({ id: doc.id, caseId: doc.case_id })}
+                      >
+                        <FilePlus2 className="size-4" />
+                      </Button>
+                      {latest && (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`View ${doc.title}`}
+                            onClick={() =>
+                              setPreviewTarget({
+                                load: () => loadDocumentBlob(latest.storage_key),
+                                mimeType: latest.mime_type,
+                                title: doc.title,
+                              })
+                            }
+                          >
+                            <Eye className="size-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`Download ${doc.title}`}
+                            onClick={() => handleDownload(latest.storage_key)}
+                          >
+                            <Download className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Delete ${doc.title}`}
+                          onClick={() => setDeleteTarget({ id: doc.id, title: doc.title })}
+                        >
+                          <Trash2 className="size-4 text-danger" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="border-t border-border bg-surface-muted/50 px-4 py-3">
+                      <VersionHistory
+                        documentId={doc.id}
+                        docTitle={doc.title}
+                        isOpen={isOpen}
+                        rollbackPending={rollback.isPending}
+                        onRollback={(versionId) => rollback.mutate({ docId: doc.id, versionId })}
+                        onPreview={setPreviewTarget}
+                        onDownload={handleDownload}
+                        isAdmin={isAdmin}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       <UploadDialog mode="new" open={uploadNew} onClose={() => setUploadNew(false)} />

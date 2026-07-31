@@ -197,7 +197,7 @@ export function AppShell() {
           >
             <Menu className="size-5" />
           </button>
-          <div className="flex-1" />
+          <div className="hidden flex-1 sm:block" />
           <GlobalSearch ref={searchRef} />
           <NotificationsBell />
           <UserMenu />

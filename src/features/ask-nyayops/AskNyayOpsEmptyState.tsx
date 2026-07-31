@@ -54,7 +54,7 @@ export function AskNyayOpsEmptyState({ size, name, onPrompt }: AskNyayOpsEmptySt
         </p>
         <p className="mt-1 text-sm text-ink-muted">I can help you manage:</p>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:w-[28rem]">
+      <div className="grid w-full grid-cols-1 gap-3 sm:w-[28rem] sm:grid-cols-2">
         {QUICK_ACTIONS.map(({ icon: Icon, label, bullets, prompt }) => (
           <button
             key={label}

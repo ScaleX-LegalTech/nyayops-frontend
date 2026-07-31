@@ -15,15 +15,19 @@ import { BillProofUploadDialog } from '@/features/bills/BillProofUploadDialog'
 import { billCopy } from '@/features/bills/copy'
 import type { Bill } from '@/types'
 
+const INITIAL_ROWS = 5
+
 /** Replaces the old milestone-backed PaymentFollowUpCard - this is the real Billing
  * module the dashboard's "Payment follow-ups" section was always meant to show. */
 export function BillQueueCard() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [uploadingFor, setUploadingFor] = useState<Bill | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   const { data, isLoading } = useQuery({ queryKey: qk.billQueue, queryFn: getMyBillQueue })
   const bills = data ?? []
+  const visibleBills = expanded ? bills : bills.slice(0, INITIAL_ROWS)
 
   const contactMutation = useMutationWithToast({
     mutationFn: (billId: string) => markBillContacted(billId),
@@ -51,7 +55,7 @@ export function BillQueueCard() {
           />
         ) : (
           <div className="divide-y divide-border">
-            {bills.map((bill) => {
+            {visibleBills.map((bill) => {
               const copy = billCopy(bill.flow_direction)
               return (
                 <div key={bill.id} className="flex items-center gap-3 px-5 py-3">
@@ -97,6 +101,15 @@ export function BillQueueCard() {
               )
             })}
           </div>
+        )}
+        {bills.length > INITIAL_ROWS && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full border-t border-border px-5 py-2.5 text-center text-sm font-medium text-brand hover:bg-surface-muted"
+          >
+            {expanded ? 'Show less' : `Show all ${bills.length}`}
+          </button>
         )}
       </CardBody>
 
