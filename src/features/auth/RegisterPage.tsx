@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, ShieldCheck } from 'lucide-react'
 import { loginOtp, registerTenant, type RegisterTenantPayload } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/client'
@@ -115,8 +115,16 @@ function WelcomeStep({ onSignIn, onCreateAccount, onAskAi }: WelcomeStepProps) {
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { setSession } = useAuth()
-  const [mode, setMode] = useState<'form' | 'chat'>('form')
-  const [step, setStep] = useState<'welcome' | 'details' | 'otp'>('welcome')
+  const [searchParams] = useSearchParams()
+  // Landing's CTAs (Talk to NyayOps / Get started) link here with ?start=details
+  // to skip the sign-in/create-account chooser - direct visits to /register still
+  // see it. ?mode=chat additionally opens straight into BootstrapChat.
+  const [mode, setMode] = useState<'form' | 'chat'>(
+    searchParams.get('mode') === 'chat' ? 'chat' : 'form',
+  )
+  const [step, setStep] = useState<'welcome' | 'details' | 'otp'>(
+    searchParams.get('start') === 'details' ? 'details' : 'welcome',
+  )
   const [orgName, setOrgName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
