@@ -28,14 +28,3 @@ export interface TenantRegistrationResponse {
 export interface AuthConfig {
   otp_email_enabled: boolean
 }
-
-export interface DecodedToken {
-  sub: string
-  tid: string
-  is_org_admin?: boolean
-  bid?: string | null
-  is_branch_admin?: boolean
-  email?: string
-  exp: number
-  iat: number
-}

@@ -23,7 +23,7 @@ export default function VerifyOtpPage() {
     setLoading(true)
     try {
       const res = await loginOtp(otpToken, codeToVerify)
-      setSession(res)
+      await setSession(res)
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invalid or expired verification code.')

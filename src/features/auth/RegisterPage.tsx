@@ -150,7 +150,7 @@ export default function RegisterPage() {
         setOtpToken(res.otp_token)
         setStep('otp')
       } else {
-        setSession(res)
+        await setSession(res)
         navigate('/setup', { replace: true })
       }
     } catch (err) {
@@ -177,7 +177,7 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const res = await loginOtp(otpToken, code)
-      setSession(res)
+      await setSession(res)
       navigate('/setup', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invalid or expired verification code.')

@@ -44,7 +44,7 @@ export default function LoginPage() {
         setOtpToken(res.otp_token)
         setStep('otp')
       } else {
-        setSession(res)
+        await setSession(res)
         navigate(from, { replace: true })
       }
     } catch (err) {
@@ -60,7 +60,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await loginMfa(mfaToken, code)
-      setSession(res)
+      await setSession(res)
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invalid verification code.')
@@ -92,7 +92,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await loginOtp(otpToken, code)
-      setSession(res)
+      await setSession(res)
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invalid or expired verification code.')

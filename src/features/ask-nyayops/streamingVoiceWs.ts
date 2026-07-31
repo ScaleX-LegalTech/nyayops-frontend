@@ -1,16 +1,15 @@
 import { API_BASE_URL } from '@/lib/api/client'
-import { getAccessToken } from '@/lib/api/tokens'
 
 /** Shared by useStreamingVoice/useStreamingTTSPlayback: derives the `wss://`
  * (or `ws://` in dev over http) URL for backend v1's streaming-voice bridge
  * routes (Improvements v1 doc §8.2 item 4) from the same VITE_API_BASE_URL
- * every other request uses - browsers can't set an Authorization header on a
- * WS upgrade, so the access token travels as `?token=` instead (see
- * ask_nyayops_voice_ws.py's AGENTS.md note on this trade-off). */
+ * every other request uses. Auth rides the httpOnly access-token cookie - a
+ * real WS handshake sends cookies automatically (no `withCredentials`-style
+ * opt-in the way EventSource/fetch need), so no token needs to travel in the
+ * URL at all anymore (see ask_nyayops_voice_ws.py's updated note). */
 export function streamingVoiceWsUrl(path: string): string {
   const wsBase = API_BASE_URL.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:')
-  const token = getAccessToken()
-  return `${wsBase}/ask-nyayops${path}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+  return `${wsBase}/ask-nyayops${path}`
 }
 
 /** 4001 (session_expired): the access token is still valid, only the 5-minute

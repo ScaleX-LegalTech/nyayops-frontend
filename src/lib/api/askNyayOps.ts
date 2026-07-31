@@ -6,7 +6,6 @@ import type {
   BootstrapMessage,
 } from '@/types'
 import { API_BASE_URL, ApiError, del, get, patch, post, toQuery } from './client'
-import { getAccessToken } from './tokens'
 
 /** Maps an Ask NyayOps failure to copy a non-technical user can act on. Known,
  * user-caused conditions (rate limit, message too long, no access) get their
@@ -48,18 +47,14 @@ export function askNyayOps(
  * function; callers MUST call it once the turn resolves (success or
  * failure) - EventSource has no concept of "the caller is done with this,"
  * it keeps the connection open (and auto-reconnects) until explicitly
- * closed. EventSource can't set an Authorization header, so the access
- * token travels as a `?token=` query param (same trade-off as
- * streamingVoiceWsUrl - see ask_nyayops_voice_ws.py's AGENTS.md note). */
+ * closed. Auth rides the httpOnly access-token cookie - EventSource doesn't
+ * send credentials cross-origin by default, hence `withCredentials: true`. */
 export function streamAskNyayOpsTurnStage(
   turnId: string,
   onStage: (stage: string | null) => void,
 ): () => void {
-  const token = getAccessToken()
-  const url = `${API_BASE_URL}/ask-nyayops/turn-stage/${turnId}/stream${
-    token ? `?token=${encodeURIComponent(token)}` : ''
-  }`
-  const source = new EventSource(url)
+  const url = `${API_BASE_URL}/ask-nyayops/turn-stage/${turnId}/stream`
+  const source = new EventSource(url, { withCredentials: true })
   source.onmessage = (event) => {
     try {
       const parsed = JSON.parse(event.data) as { stage: string | null }
@@ -75,11 +70,10 @@ export function streamAskNyayOpsTurnStage(
   return () => source.close()
 }
 
-/** The unauthenticated Bootstrap agent (POST /ask-nyayops/bootstrap, no bearer
- * token attached - apiFetch only adds one when getAccessToken() has a value,
- * which it never does pre-signup). Stateless: the caller resends the running
- * `history` every turn since there's no user yet to own a persisted
- * conversation against. */
+/** The unauthenticated Bootstrap agent (POST /ask-nyayops/bootstrap) - there's
+ * no session cookie pre-signup, so this is a genuinely anonymous call.
+ * Stateless: the caller resends the running `history` every turn since
+ * there's no user yet to own a persisted conversation against. */
 export function askBootstrap(
   message: string,
   history: BootstrapMessage[],

@@ -1,5 +1,3 @@
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokens'
-
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL
 /** Origin without the /api/v1 suffix — used for storage upload/download URLs. */
 export const API_ORIGIN: string = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
@@ -20,7 +18,6 @@ export class ApiError extends Error {
 }
 
 function emitLogout(): void {
-  clearTokens()
   window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT))
 }
 
@@ -70,22 +67,25 @@ let refreshInFlight: Promise<RefreshOutcome> | null = null
  * a 401 from the refresh endpoint itself means the refresh token is actually
  * dead - anything else (network error, timeout, 5xx) is transient and
  * shouldn't cost the user their session (see the Flutter app's api_client.dart
- * for the same fix, made first). */
+ * for the same fix, made first).
+ *
+ * Neither token is read or sent by this client at all anymore - both the
+ * access and refresh tokens live in httpOnly cookies the browser attaches on
+ * its own via `credentials: 'include'` and the server rotates via its own
+ * `Set-Cookie` response headers. Whether a session exists at all is
+ * something only the server can answer now (a 401 means "no valid cookie"),
+ * not something this client can short-circuit by checking local storage
+ * first. The response body (still containing access_token/refresh_token, an
+ * API-contract detail Flutter relies on) is irrelevant to web and ignored. */
 export async function refreshTokens(): Promise<RefreshOutcome> {
-  const refresh = getRefreshToken()
-  if (!refresh) return 'invalidToken'
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refresh }),
+          credentials: 'include',
         })
-        if (!res.ok) return res.status === 401 ? 'invalidToken' : 'transientError'
-        const data = await res.json()
-        setTokens(data.access_token, data.refresh_token)
-        return 'success'
+        return res.ok ? 'success' : res.status === 401 ? 'invalidToken' : 'transientError'
       } catch {
         return 'transientError'
       } finally {
@@ -96,13 +96,23 @@ export async function refreshTokens(): Promise<RefreshOutcome> {
   return refreshInFlight
 }
 
-/** Core JSON fetch wrapper with bearer auth and one-shot 401 refresh+retry. */
+/** Best-effort: blocklists the refresh cookie server-side and clears it.
+ * Bypasses apiFetch (like refreshTokens above) since this is a cookie-
+ * authenticated endpoint, not a Bearer-authenticated one - it must still
+ * "succeed" (from the caller's point of view) even if the network call
+ * itself fails, since local state gets cleared regardless. */
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' })
+  } catch {
+    // ignore - caller clears local state either way
+  }
+}
+
+/** Core JSON fetch wrapper (cookie-authenticated) with one-shot 401 refresh+retry. */
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, _retried, ...rest } = options
   const finalHeaders: Record<string, string> = { ...(headers as Record<string, string>) }
-
-  const token = getAccessToken()
-  if (token) finalHeaders.Authorization = `Bearer ${token}`
 
   let payload: BodyInit | undefined
   if (body !== undefined) {
@@ -112,11 +122,15 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
+    credentials: 'include',
     headers: finalHeaders,
     body: payload,
   })
 
-  if (response.status === 401 && !_retried && getRefreshToken()) {
+  if (response.status === 401 && !_retried) {
+    // No local signal to check anymore (the refresh token isn't
+    // client-readable) - just try; the server's own response tells us
+    // whether there was ever a cookie to refresh from.
     const outcome = await refreshTokens()
     if (outcome === 'success') {
       return apiFetch<T>(path, { ...options, _retried: true })
@@ -151,10 +165,7 @@ export const del = <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' })
 /** For endpoints that return raw bytes (a file), not JSON - apiFetch always tries to
  * JSON-parse the body, which doesn't work here. */
 export async function getBlob(path: string): Promise<Blob> {
-  const token = getAccessToken()
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const res = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
   if (!res.ok) {
     throw new ApiError(res.status, `Request failed (${res.status})`)
   }

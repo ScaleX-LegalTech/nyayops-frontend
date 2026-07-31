@@ -1,6 +1,5 @@
 import type { AuditLog, AuditLogPageResponse, AuditLogSearchFilters } from '@/types'
 import { API_BASE_URL, get, toQuery } from './client'
-import { getAccessToken } from './tokens'
 
 export function listAuditLogs(
   filters: AuditLogSearchFilters = {},
@@ -12,12 +11,9 @@ export function listCaseActivity(caseId: string): Promise<AuditLog[]> {
   return get<AuditLog[]>(`/cases/${caseId}/activity`)
 }
 
-/** Download the audit log CSV export with the bearer token attached. */
+/** Download the audit log CSV export - cookie-authenticated. */
 export async function exportAuditLogsCsv(): Promise<void> {
-  const token = getAccessToken()
-  const res = await fetch(`${API_BASE_URL}/audit-logs/export`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const res = await fetch(`${API_BASE_URL}/audit-logs/export`, { credentials: 'include' })
   if (!res.ok) {
     throw new Error(`Export failed (${res.status})`)
   }

@@ -5,7 +5,6 @@ import type {
   DocumentUploadResponse,
 } from '@/types'
 import { API_ORIGIN, del, get, getBlob, post, toQuery } from './client'
-import { getAccessToken } from './tokens'
 
 export interface UploadUrlPayload {
   case_id: string
@@ -73,10 +72,12 @@ function encodeStorageKey(storageKey: string): string {
  * own API for the local-disk storage backend. */
 export async function uploadFileBytes(uploadUrl: string, file: File): Promise<void> {
   const isPresigned = /^https?:\/\//.test(uploadUrl)
-  const token = getAccessToken()
   const res = await fetch(isPresigned ? uploadUrl : `${API_ORIGIN}${uploadUrl}`, {
     method: 'PUT',
-    headers: !isPresigned && token ? { Authorization: `Bearer ${token}` } : {},
+    // Presigned storage URLs carry their own auth in the query string and
+    // must NOT get cookies attached (cross-origin to a different host
+    // entirely); our own API's local-disk backend needs the cookie.
+    credentials: isPresigned ? 'omit' : 'include',
     body: file,
   })
   if (!res.ok) {
