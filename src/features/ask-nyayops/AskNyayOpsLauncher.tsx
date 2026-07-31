@@ -68,6 +68,7 @@ export function AskNyayOpsLauncher() {
   const { atBottom, handleScroll, scrollToBottom } = useScrollToBottom(
     scrollRef,
     entries.length,
+    activeConversationId,
   )
   const activeModule = inferModuleFromEntries(entries)
 

@@ -11,10 +11,16 @@ const BOTTOM_THRESHOLD_PX = 48
  * (a new turn lands) and the user is already at the bottom, this
  * auto-scrolls to reveal it; if the user has scrolled up to read earlier
  * messages, it instead flips `hasNew` so the caller can show a "new
- * messages" indicator instead of yanking their scroll position. */
+ * messages" indicator instead of yanking their scroll position.
+ *
+ * `resetKey` (e.g. the active conversation id) forces an unconditional,
+ * instant jump to the bottom whenever it changes - opening or switching to a
+ * conversation should always land on its latest message, never top-of-thread,
+ * regardless of where `isAtBottom()` happens to read mid-render. */
 export function useScrollToBottom(
   containerRef: RefObject<HTMLDivElement | null>,
   watchLength: number,
+  resetKey?: unknown,
 ) {
   const [atBottom, setAtBottom] = useState(true)
   const [hasNew, setHasNew] = useState(false)
@@ -53,6 +59,13 @@ export function useScrollToBottom(
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchLength])
+
+  useEffect(() => {
+    // Runs on mount too (opening a conversation with existing history should
+    // never start scrolled to top), not just on later switches.
+    requestAnimationFrame(() => scrollToBottom('auto'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey])
 
   return { atBottom, hasNew, handleScroll, scrollToBottom }
 }

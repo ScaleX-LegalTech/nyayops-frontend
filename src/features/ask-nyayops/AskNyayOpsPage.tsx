@@ -28,7 +28,7 @@ import { useScrollToBottom } from './useScrollToBottom'
  * AskNyayOpsLauncher's "make it large" control uses (implementation plan
  * §7.1), so expanding never loses or duplicates a turn. */
 export default function AskNyayOpsPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { data: profile } = useQuery({ queryKey: qk.myProfile, queryFn: getMe })
   const { data: org } = useQuery({ queryKey: qk.organizationName, queryFn: getOrganizationName })
@@ -65,10 +65,26 @@ export default function AskNyayOpsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  // Keep `?conversation=` in lockstep with whichever thread is actually
+  // active (switching in the sidebar, or a first message minting a new one) -
+  // previously only the initial handoff param was ever read, never written
+  // back, so navigating away (e.g. following a case link) and hitting the
+  // browser's Back button returned to a stale/blank conversation instead of
+  // the one you were just reading.
+  useEffect(() => {
+    if (searchParams.get('conversation') === activeConversationId) return
+    const next = new URLSearchParams(searchParams)
+    if (activeConversationId) next.set('conversation', activeConversationId)
+    else next.delete('conversation')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversationId])
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const { atBottom, handleScroll, scrollToBottom } = useScrollToBottom(
     scrollRef,
     entries.length,
+    activeConversationId,
   )
   const activeModule = inferModuleFromEntries(entries)
   const activeCaseId = latestCaseSourceId(entries)
