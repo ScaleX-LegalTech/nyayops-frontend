@@ -15,7 +15,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           aria-hidden
         />
         <div className="relative flex items-center gap-3">
-          <img src="/logo.png" alt="" className="size-13 object-contain" />
+          <span className="grid size-12 shrink-0 place-items-center rounded-control bg-accent/15">
+            <img src="/logo.png" alt="" className="size-8 object-contain" />
+          </span>
           <span className="font-display text-2xl font-semibold tracking-tight">
             Nyay<span className="text-accent">Ops</span>
           </span>

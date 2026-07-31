@@ -10,7 +10,9 @@ interface WordmarkProps {
 export function Wordmark({ className, subtitle }: WordmarkProps) {
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
-      <img src="/logo.png" alt="" className="size-16 shrink-0 object-contain" />
+      <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent/15">
+        <img src="/logo.png" alt="" className="size-7 object-contain" />
+      </span>
       <div className="min-w-0">
         <span className="type-page-title text-xl text-shell-ink">
           Nyay<span className="text-accent">Ops</span>

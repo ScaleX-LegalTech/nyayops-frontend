@@ -52,7 +52,9 @@ function WelcomeStep({ onSignIn, onCreateAccount, onAskAi }: WelcomeStepProps) {
       <div className="relative flex h-full max-h-[44rem] w-full max-w-sm flex-col overflow-hidden rounded-card border border-border bg-surface shadow-pop">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-8">
           <div className="flex items-center justify-center gap-2">
-            <img src="/logo.png" alt="" className="size-10 object-contain" />
+            <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent/15">
+              <img src="/logo.png" alt="" className="size-7 object-contain" />
+            </span>
             <span className="font-display text-xl font-semibold tracking-tight text-ink">
               Nyay<span className="text-brand">Ops</span>
             </span>
