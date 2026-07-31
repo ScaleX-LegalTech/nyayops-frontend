@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Eye, RefreshCw, X } from 'lucide-react'
 import {
@@ -219,6 +219,7 @@ function ManualHistorySection({ caseId, history }: { caseId: string; history: Ca
 
 export default function CaseFullDetailsPage() {
   const { caseId = '' } = useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [manualDocOpen, setManualDocOpen] = useState(false)
@@ -255,12 +256,13 @@ export default function CaseFullDetailsPage() {
 
   return (
     <div className="animate-rise">
-      <Link
-        to={`/cases/${caseId}`}
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
       >
-        <ArrowLeft className="size-4" /> Case
-      </Link>
+        <ArrowLeft className="size-4" /> Back
+      </button>
 
       <PageHeader
         title="Case details"

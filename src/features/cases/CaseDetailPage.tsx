@@ -227,12 +227,13 @@ export default function CaseDetailPage() {
 
   return (
     <div className="animate-rise">
-      <Link
-        to="/cases"
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
       >
-        <ArrowLeft className="size-4" /> Cases
-      </Link>
+        <ArrowLeft className="size-4" /> Back
+      </button>
 
       <PageHeader
         title={c.title}

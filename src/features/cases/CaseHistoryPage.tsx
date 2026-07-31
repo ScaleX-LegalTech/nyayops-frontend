@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, FileText } from 'lucide-react'
 import { listCaseActivity } from '@/lib/api/audit'
@@ -168,6 +168,7 @@ function EventBody({ log, nameOf }: { log: AuditLog; nameOf: (id: string) => str
 
 export default function CaseHistoryPage() {
   const { caseId = '' } = useParams()
+  const navigate = useNavigate()
   const { nameOf: globalNameOf } = useUsers()
   const { nameOf: caseNameOf } = useCasePeople(caseId)
   const nameOf = (id: string) => caseNameOf(id) ?? globalNameOf(id)
@@ -182,12 +183,13 @@ export default function CaseHistoryPage() {
 
   return (
     <div className="animate-rise">
-      <Link
-        to={`/cases/${caseId}`}
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-brand"
       >
-        <ArrowLeft className="size-4" /> Case
-      </Link>
+        <ArrowLeft className="size-4" /> Back
+      </button>
 
       <PageHeader
         title="Case history"
