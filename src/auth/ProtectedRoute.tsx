@@ -4,9 +4,14 @@ import { useCanManageRoles } from '@/lib/usePermissions'
 import { LoadingState } from '@/components/ui/Feedback'
 
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isInitializing } = useAuth()
   const location = useLocation()
 
+  // Wait for AuthContext's mount-time silent-refresh attempt - otherwise a
+  // merely-expired access token (the refresh token can still be days from
+  // expiry) bounces straight to /login before that refresh ever gets a
+  // chance to run.
+  if (isInitializing) return <LoadingState />
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }

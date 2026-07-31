@@ -71,7 +71,7 @@ let refreshInFlight: Promise<RefreshOutcome> | null = null
  * dead - anything else (network error, timeout, 5xx) is transient and
  * shouldn't cost the user their session (see the Flutter app's api_client.dart
  * for the same fix, made first). */
-async function refreshTokens(): Promise<RefreshOutcome> {
+export async function refreshTokens(): Promise<RefreshOutcome> {
   const refresh = getRefreshToken()
   if (!refresh) return 'invalidToken'
   if (!refreshInFlight) {
